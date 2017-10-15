@@ -1,4 +1,4 @@
-# RheingoldGraph Prototype Readme #
+# RheingoldGraph Prototype Readme
 
 RheingoldGraph Prototype is a demonstration of an initial concept of a graph representation of musical information.
 
