@@ -4,7 +4,9 @@
 
 [BachCelloScore]: resources/BachCelloScoreExample.png "Cello Suite No. 2 in d minor, Prelude (Opening) - Bach, J.S."
 
-[ex2]: https://docs.google.com/drawings/d/e/2PACX-1vTcHhH99u6lWE00bMphRkEcwYNfcZjMMWhAsmiwxXB9RbjjPvV8yciBZpyy-v_bj7x0dVmuRnr4TGTx/pub?w=1415&h=905 "Music Graph with Playable Notes"
+[BachCelloMusicGraphEx1]: https://docs.google.com/drawings/d/e/2PACX-1vTK6m4qwAGEwU0JZ556ZV1JTQh5f-HoQHJRe3-LGXrHc-7Lo2B5YVsPItlnzjSud09msv_eLeJhPPzM/pub?w=1431&h=782 "Bach Cello Music Graph"
+
+[BachCelloMusicGraphEx2]: https://docs.google.com/drawings/d/e/2PACX-1vTcHhH99u6lWE00bMphRkEcwYNfcZjMMWhAsmiwxXB9RbjjPvV8yciBZpyy-v_bj7x0dVmuRnr4TGTx/pub?w=1415&h=905 "Bach Cello Music Graph with Playable Notes"
 
 The goal here is to introduce the concept of the music graph.  We'll focus on high-level design and a few sample queries.  Future parts of this series will go into more detail on the exact implementation.
 
@@ -66,10 +68,14 @@ We can also have a notational representation in an XML type format, which can be
 ```
 
 #### Performance-specific representation
-We can also encode the specifics of a single performance.  The most widespread modern form of this is MIDI (or [Musical Instrument Digital Interface](Musical Instrument Digital Interface)).  MIDI is a binary serialized format not meant to be human-readable.  Simplistically, MIDI message contains "NOTE ON" and "NOTE OFF" messages for different pitches, in addition to other information on dynamics and instrument programs.  Note that MIDI itself contains no audiol, only the instructions to create it, and in this way is another variation on a representation of the core logic of a piece of music.
+We can also encode the specifics of a single performance.  The most widespread modern form of this is MIDI (or [Musical Instrument Digital Interface](Musical Instrument Digital Interface)).  MIDI is a binary serialized format not meant to be human-readable.  Simplistically, MIDI message contains "NOTE ON" and "NOTE OFF" messages for different pitches, in addition to other information on dynamics and instrument programs.  Note that MIDI itself contains no audio, only the instructions to create it, and in this way is another variation on a representation of the core logic of a piece of music.
 
 ### Thinking differently
-There are issues with all of the above methods of music representation - which we'll discuss in more detail later.  For now however, let's imagine another way of representing the same information from our Bach Cello Suite. 
+There are issues with all of the above methods of music representation - which we'll discuss in more detail later.  For now however, let's imagine another way of representing the same information from our Bach Cello Suite.
+
+![alt text][BachCelloMusicGraphEx1]
+
+We can 
 
 
 (I'll avoid the same stupid Inception "We must go deeper" gif that's everywhere....)
@@ -90,12 +96,11 @@ Our musical graph, at this point, is as notable as much for what it leaves as fo
 Once we have built our initial representation of the notational aspects of our musical score, we transform these nodes into a playable representation.  Pitch in this case remains the same (we are not dealing with a transposing instrument).  We combine length, dots and ties into a single representation of duration.  We do not want to explicitly attach our representation to tempo, so instead of duration in time we define a duration in “ticks.”  We choose a tick resolution (for example, 480 ticks per beat) that is higher than the smallest quantization of rhythm found in the score, and at minimum the least common multiple of all note durations that are found in the score.  With these choices, we can represent all durations in a piece as integers.  The integers can then be translated to arbitrary duration in seconds by applying our “ticks per beat” to the “beats per minute” tempo of a given performance.
 Since a core goal of our music graph is to facilitate natural and flexible analysis, we want to ensure that the linkage between symbolic and sonic representation remains a first-class citizen in our graph.  We allow for this by maintaining an edge mapping notation nodes to the nodes representing their sonic realization.  As we continue to extend this graph in the future, we will have the opportunity to additionally map the notation node to an actual sound itself.
     
-    Once this is complete
+Once this is complete
 
+Here's what we have now:
 
-Here is what we've built so far:
-
-![alt text][ex2]
+![alt text][BachCelloMusicGraphEx2]
 
 
 
