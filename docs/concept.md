@@ -2,6 +2,8 @@
 
 [//]: # (Image References)
 
+[BachCelloScore]: resources/BachCelloScoreExample.png "Cello Suite No. 2 in d minor, Prelude (Opening) - Bach, J.S."
+
 [ex2]: https://docs.google.com/drawings/d/e/2PACX-1vTcHhH99u6lWE00bMphRkEcwYNfcZjMMWhAsmiwxXB9RbjjPvV8yciBZpyy-v_bj7x0dVmuRnr4TGTx/pub?w=1415&h=905 "Music Graph with Playable Notes"
 
 The goal here is to introduce the concept of the music graph.  We'll focus on high-level design and a few sample queries.  Future parts of this series will go into more detail on the exact implementation.
@@ -24,15 +26,62 @@ In all three cases, our goal is to eventual have a clean abstraction above the l
 
 In all three cases, the goal is to improve on current storage methods.  An overview of current storage methods will be released in [Part II](storagemethods.md) of this series.
 
-We can start 
-    
+
+### Starting point
+Let's start with an concrete example using a simple melody line from the opening of the Prelude from [Bach’s Cello Suite No. 2 in d minor](http://imslp.org/wiki/Cello_Suite_No.2_in_D_minor,_BWV_1008_(Bach,_Johann_Sebastian)).
+
+We normally think of representing music in a couple of primary ways - __notation representation__ and __performance representation__.  
+
+#### Notational Representation
+Music notation seeks to encode musical logic into a format that is readable by humans for performance and analysis.
+
+This could be music notation on a printed page, like this:
+
+![alt text][BachCelloScore]
+
+We can also have a notational representation in an XML type format, which can be used to store, modify, and transfer music information between computer applications.  Since XML music notation is very verbose, we'll start with the first two notes. 
+```xml
+<note>
+    <pitch>
+        <step>D</step>
+        <octave>3</octave>
+    </pitch>
+    <duration>2</duration>
+    <voice>1</voice>
+    <type>eighth</type>
+    <stem>down</stem>
+    <beam number="1">begin</beam>
+</note>
+<note>
+    <pitch> 
+        <step>F</step>
+        <octave>3</octave>
+    </pitch>
+    <duration>2</duration>
+    <voice>1</voice>
+    <type>eighth</type>
+    <stem>down</stem>
+    <beam number="1">end</beam>
+</note>
+```
+
+#### Performance-specific representation
+We can also encode the specifics of a single performance.  The most widespread modern form of this is MIDI (or [Musical Instrument Digital Interface](Musical Instrument Digital Interface)).  MIDI is a binary serialized format not meant to be human-readable.  Simplistically, MIDI message contains "NOTE ON" and "NOTE OFF" messages for different pitches, in addition to other information on dynamics and instrument programs.  Note that MIDI itself contains no audiol, only the instructions to create it, and in this way is another variation on a representation of the core logic of a piece of music.
+
+### Thinking differently
+There are issues with all of the above methods of music representation - which we'll discuss in more detail later.  For now however, let's imagine another way of representing the same information from our Bach Cello Suite. 
+
+
+(I'll avoid the same stupid Inception "We must go deeper" gif that's everywhere....)
+
+### How we build it
+
 We can demonstrate an example of this musical intelligence graph concept using Neo4j, an off-the-shelf property graph database.  We can also show the simplicity of this concept show using Cypher as a declarative query language.  Neo4j provides
 There are a couple of reasons for these choices for an overview:
 Neo4j Community is free and easy to run from a Docker image, meaning it’s simple and lightweight
 Cypher is a clear, readable, declarative query language, suitable for demonstrations 
 Neo4j includes a clean and simple GUI for query entry and immediate visualization of graph results without additional software or packages
 
-Proposed methodology, using a simple melody line (from the opening of the Prelude from Bach’s Cello Suite No. 2 in d minor) as an example.
 First, we build a music graph of the piece’s note information as it is contained in the printed score.  This information could be entered in the graph manually (via query language), or created by parsing an existing computer representation of the musical score (for example, MusicXML).
 We build each node (vertex) of the graph with specific properties, representing the essential information of pitch and length.  We represent the note ordering via the relationships (edges) between these nodes.  Assuming we have a single line with no chordal or polyphonic content, this graph will be a single-branched, directed acyclic graph (TODO: confirm this terminology).
 We make several choices to facilitate human readability of this graph, a requirement that we will relax in future phases of development.  Specifically, we have encoded note information with both a name (“D3”) as well as pitch class (“D”) and octave (3) information as separate properties.  This means we have repeated certain values in multiple properties.  While this technically breaks a rule we’d like to follow of not duplicating information, and is inefficient from a storage perspective, we allow for this duplication in this current example to facilitate human readability.  We also choose to encode note length as the inverse of the note’s duration in relation to a whole bar of music.  This means we represent an eighth note’s length as the integer 8.
@@ -52,7 +101,7 @@ Here is what we've built so far:
 
     
 
-
+### Querying our model
 Querying the graph model with Cypher (declarative language)
 
 (Example of getting the playable notes in order, and also the original notational representation)
@@ -82,3 +131,10 @@ Now that some of the fundamental concepts and structure of the music graph have 
 Extensions
 
 Many of the concepts of the music graph can be extended to other domains, because at its heart, the music graph is about storing arbitrary relationships and temporal information.
+
+
+Footnotes
+
+Notated examples via [Noteflight](https://www.noteflight.com/)
+
+Fascinating video from Xerox PARC describing one of the first attempts to build computer music notation software in 1980.  To give a sense of the time period this from John Maxwell devotes a few sentences describe the use of a new device called a "Mouse."

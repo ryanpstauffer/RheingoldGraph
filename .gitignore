@@ -1,8 +1,8 @@
 # OSX
 .DS_Store
 
-# Database files
-neo4j/
+# Allow resources folder
+!docs/resources/*.png
 
 # Midi files - for now
 *.mid
@@ -87,9 +87,6 @@ ENV/
 # Rope project settings
 .ropeproject
 
-#pictures
-*.jpg
-*.png
 
 *.lnk
 *.zip
