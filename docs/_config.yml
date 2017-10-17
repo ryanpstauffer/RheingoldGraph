@@ -1,3 +1,4 @@
 theme: jekyll-theme-dinky
 title: RheingoldGraph
 description: A graph model of music information
+show_downloads: true
