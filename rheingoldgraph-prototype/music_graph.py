@@ -223,7 +223,7 @@ class GraphAPI(object):
 
 
     def add_line(self, line_name):
-        """Add a Line node to the graph.
+        """Add a Line node to the music graph.
 
         Args:
             line_name: name of the line to add notes to
@@ -709,9 +709,6 @@ def build_lines_from_xml(graph_client, filename, piece_name=None):
 
 if __name__ == '__main__':
     graph_client = GraphAPI('localhost')
-
-
-    # Try to play back a chord
 
 
     # notes = parse_note_file('bach_cello_duration_in_names.csv')
