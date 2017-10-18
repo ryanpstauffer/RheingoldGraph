@@ -22,12 +22,11 @@ RheingoldGraph has three reasons for existing:
 
 1. As a store of musical information in a way that can immediately be put to use for music information retrieval (MIR) tasks
 2. As an integral part of broader research into applying machine intelligence on music understanding
-3. As a specific use case (music) to justify research into new data storage and retrieval concepts, insights from which can be applied to other (non-musical) domains.
+3. As a specific use case (music) to justify research into new data storage and retrieval concepts, insights from which can be applied to other (non-musical) domains
 
 In all three cases, our goal is to eventual have a clean abstraction above the lower levels issues of storing and retrieving music information.  With this in mind, the RheingoldGraph project seeks to streamline common low level data operations and eventually provide a clean API for use by both users and other future applications.
 
 In all three cases, the goal is to improve on current storage methods.  An overview of current storage methods will be released in [Part II](storagemethods.md) of this series.
-
 
 ### Starting point
 Let's start with an concrete example using a simple melody line from the opening of the Prelude from [Bach’s Cello Suite No. 2 in d minor](http://imslp.org/wiki/Cello_Suite_No.2_in_D_minor,_BWV_1008_(Bach,_Johann_Sebastian)).
@@ -71,46 +70,106 @@ We can also have a notational representation in an XML type format, which can be
 We can also encode the specifics of a single performance.  The most widespread modern form of this is MIDI (or [Musical Instrument Digital Interface](Musical Instrument Digital Interface)).  MIDI is a binary serialized format not meant to be human-readable.  Simplistically, MIDI message contains "NOTE ON" and "NOTE OFF" messages for different pitches, in addition to other information on dynamics and instrument programs.  Note that MIDI itself contains no audio, only the instructions to create it, and in this way is another variation on a representation of the core logic of a piece of music.
 
 ### Thinking differently
-There are issues with all of the above methods of music representation - which we'll discuss in more detail later.  For now however, let's imagine another way of representing the same information from our Bach Cello Suite.
+There are issues with all of the above methods of music representation - which we'll dive into in Part III.  For now, let's imagine another way of representing the same information from our Bach Cello Suite.
 
 ![alt text][BachCelloMusicGraphEx1]
 
-We can 
+We can represent all of the core musical information from Bach with a few simple elements that have been properly ordered in time.  Each note is represented by a __vertex__ in our graph.  Each vertex is connected by one or more __edges__.  Let's go deeper into what information is actually stored in each vertex and how we construct this graph.
 
+### Building our graph
+For our RheingoldGraph prototype, we use an off-the-shelf property graph database called Neo4j, along with its declarative query language, Cypher.  There are several reasons to use Neo4j as a demonstration prototype:
 
-(I'll avoid the same stupid Inception "We must go deeper" gif that's everywhere....)
+* Neo4j Community is free and easy to run from an official Docker image, meaning it takes only seconds to get running
+* Cypher is a clear and concise query language, suitable for building a proof-of-concept 
+* Neo4j includes a clean and simple GUI for query execution and immediate visualization of graph results, without the need for additional software or packages
+* Neo4j has a lightweight and officially supported Python driver
 
-### How we build it
+We start building our music graph with note information that we would find in the printed score.  This information could be entered into the graph directly using Cypher
+```
+// Create the line
+CREATE (line:Line {name: 'bach_cello'}
 
-We can demonstrate an example of this musical intelligence graph concept using Neo4j, an off-the-shelf property graph database.  We can also show the simplicity of this concept show using Cypher as a declarative query language.  Neo4j provides
-There are a couple of reasons for these choices for an overview:
-Neo4j Community is free and easy to run from a Docker image, meaning it’s simple and lightweight
-Cypher is a clear, readable, declarative query language, suitable for demonstrations 
-Neo4j includes a clean and simple GUI for query entry and immediate visualization of graph results without additional software or packages
+// Create notes
+CREATE (n1:Note {
+                  name: "D3",
+                  pitchClass: "D",
+                  octave: 3, 
+                  length: 8, 
+                  dot:0
+                })
+CREATE (n2:Note {
+                  name: "F3",
+                  pitchClass: "F",
+                  octave: 3, 
+                  length: 8, 
+                  dot:0
+                })
+CREATE (n3:Note {
+                  name: "A3",
+                  pitchClass: "A",
+                  octave: 3, 
+                  length: 4, 
+                  dot:0
+                })
+CREATE (n4:Note {
+                  name: "A3",
+                  pitchClass: "A",
+                  octave: 3, 
+                  length: 16, 
+                  dot:0
+                })
+CREATE (n5:Note {
+                  name: "F3",
+                  pitchClass: "F",
+                  octave: 3, 
+                  length: 16, 
+                  dot:0
+                })
+CREATE (n6:Note {
+                  name: "E3",
+                  pitchClass: "E",
+                  octave: 3, 
+                  length: 16, 
+                  dot:0
+                })
+CREATE (n7:Note {
+                  name: "D3",
+                  pitchClass: "D",
+                  octave: 3, 
+                  length: 16, 
+                  dot:0
+                })
 
-First, we build a music graph of the piece’s note information as it is contained in the printed score.  This information could be entered in the graph manually (via query language), or created by parsing an existing computer representation of the musical score (for example, MusicXML).
-We build each node (vertex) of the graph with specific properties, representing the essential information of pitch and length.  We represent the note ordering via the relationships (edges) between these nodes.  Assuming we have a single line with no chordal or polyphonic content, this graph will be a single-branched, directed acyclic graph (TODO: confirm this terminology).
-We make several choices to facilitate human readability of this graph, a requirement that we will relax in future phases of development.  Specifically, we have encoded note information with both a name (“D3”) as well as pitch class (“D”) and octave (3) information as separate properties.  This means we have repeated certain values in multiple properties.  While this technically breaks a rule we’d like to follow of not duplicating information, and is inefficient from a storage perspective, we allow for this duplication in this current example to facilitate human readability.  We also choose to encode note length as the inverse of the note’s duration in relation to a whole bar of music.  This means we represent an eighth note’s length as the integer 8.
-There are two final details that we can dispense with shortly.  Because we choose to have our initial representation of our musical graph as being beholden to the notational specifics of the score, we must incorporate dot and tie information in our graph as well.  We encode a dot as a property of the Note node, and a tie as an additional edge between nodes.
-Our musical graph, at this point, is as notable as much for what it leaves as for what it includes.  We dispense with several elements of written music at this point - barlines, key signature, and clef.  The logic for the choices will be made clear shortly.
-Once we have built our initial representation of the notational aspects of our musical score, we transform these nodes into a playable representation.  Pitch in this case remains the same (we are not dealing with a transposing instrument).  We combine length, dots and ties into a single representation of duration.  We do not want to explicitly attach our representation to tempo, so instead of duration in time we define a duration in “ticks.”  We choose a tick resolution (for example, 480 ticks per beat) that is higher than the smallest quantization of rhythm found in the score, and at minimum the least common multiple of all note durations that are found in the score.  With these choices, we can represent all durations in a piece as integers.  The integers can then be translated to arbitrary duration in seconds by applying our “ticks per beat” to the “beats per minute” tempo of a given performance.
-Since a core goal of our music graph is to facilitate natural and flexible analysis, we want to ensure that the linkage between symbolic and sonic representation remains a first-class citizen in our graph.  We allow for this by maintaining an edge mapping notation nodes to the nodes representing their sonic realization.  As we continue to extend this graph in the future, we will have the opportunity to additionally map the notation node to an actual sound itself.
-    
-Once this is complete
+// Create ordering relationships
+(line)-[:START]->(n1)
+CREATE (n1)-[:NEXT]->(n2)
+CREATE (n2)-[:NEXT]->(n3)
+CREATE (n3)-[:NEXT]->(n4)
+CREATE (n4)-[:NEXT]->(n5)
+CREATE (n5)-[:NEXT]->(n6)
+CREATE (n6)-[:NEXT]->(n7)
 
-Here's what we have now:
+// Add ties
+CREATE (n3)-[:TIE]->(n4);
+```
+_For the full examples, see the [repository](https://github.com/ryanpstauffer/RheingoldGraph-Prototype) on Github_
 
+It's easy to see how pedantic this process can become, and it certainly won't scale for a full piece.  Instead, we automate the load process from an existing computer representation of the musical score (for example, MusicXML).  For this demonstration, we wrote a simple Python MusicXML parser that parses a monophonic MusicXML score and adds it to our music graph.
+
+#### Initial Graph
+Regardless of what tool we use, we build each vertex (node) of the graph with specific properties, representing the essential information of pitch and rhythm.  We represent the note ordering via the edges connecting these nodes.  Assuming we have a single line with no chordal or polyphonic content, this graph will be a single-branched, directed acyclic graph.
+
+Since this demonstration is aiming for simplicity and ease of explanation, we have encoded note information with both a name (“D3”) as well as separate properties for pitch class (“D”) and octave (3).  For the full implementation, we'll remove this duplicate property information, minimizing potential intra-vertex consistency issues and improving storage efficiency.  We also choose to encode note length as the inverse of the note’s duration in relation to a whole bar of music.  This means we represent an eighth note’s length as the integer 8.  To complete are representation of rhythm, we also must incorporate dot and tie information in our graph as well.  We encode the number of dots as a property of the Note vertex, and we encode a tie as an additional edge between vertices.
+
+#### Playable Representation
+Next, we transform this initial graph into a playable representation.  The main transformation is to combine length, dots and ties into a single representation of duration.  In order to allow for future variation in tempo, we define a duration in “ticks” instead of time.  Using a tick resolution (for example, 480 ticks per beat) that is larger than the least common multiple of all note durations that are found in the score, we can represent all durations as integers.  These integers can later be translated to an arbitrary duration in seconds based on the tempo of a given performance.
+Since a core goal of our music graph is to facilitate natural and flexible analysis, we want to ensure that the linkage between symbolic and sonic representation remains a first-class citizen in our graph.  We ensure this with edges connecting our notation vertices to the vertices representing their sonic realization.
+
+Here is our graph after we add our playable representation:
 ![alt text][BachCelloMusicGraphEx2]
 
-
-
-    
-
 ### Querying our model
-Querying the graph model with Cypher (declarative language)
-
-(Example of getting the playable notes in order, and also the original notational representation)
-
+To query the above information (and create the image), we need to ensure that we retrieve our playable notes in the correct order.  Here is a sample Cypher query that gets us our playable notes along with their original notational representation.
 ```
 MATCH (line:Line {name:"bach_xml"})-[r:START_PLAY|NEXT*]->(play:PlayableNote)
 MATCH (play)<-[:PLAY_AS]-(note:Note)
@@ -118,27 +177,16 @@ RETURN line, play, note, size(r) AS Dist
 ORDER BY Dist
 ```
 
+Writing queries like this - even in a declarative language like Cypher - is something we prefer to abstract away from as in the full music graph.  For this reason, we use a simple API built out of a handful of classes and functions for our prototype.  Part III of this series will go into more detail on this API.  Until then, you can view all of the source code in the [RheingoldGraph-Prototype](https://github.com/ryanpstauffer/RheingoldGraph-Prototype) Github repository.
 
 
-## API
+### Next steps
+Now that some of the fundamental concepts and structure of the music graph have been laid out, the next part of this description will demonstrate an implementation of the music graph using an imperative language, explicitly defining our traversal and allowing streaming output directly from the graph to MIDI.  As we continue to extend this graph in the future, we will also have the opportunity to map the notation node to an actual sound itself.
 
-Writing the queries shown above - even in a declarative language such as Cypher - is something we would prefer to abstract away from as we build our music graph.  For this reason, we use a simple API built out of a handful of classes and functions.  This is a brief discussion of the initial "toy" API built to prove out the concept.  All of the source code implementing what is described below can be found in the [RheingoldGraph-Prototype](https://github.com/ryanpstauffer/RheingoldGraph-Prototype) Github repository.
-
-
-
-
-While we may see a declarative query language as a handicap for its lack of execution specificity, it can still prove to quickly be a very powerful analytical tool. 
+CONCLUSION NEEDED
 
 
-Next steps
-Now that some of the fundamental concepts and structure of the music graph have been laid out, the next part of this description will demonstrate an implementation of the music graph using an imperative language, explicitly defining our traversal and allowing streaming output directly from the graph to MIDI.
-
-Extensions
-
-Many of the concepts of the music graph can be extended to other domains, because at its heart, the music graph is about storing arbitrary relationships and temporal information.
-
-
-Footnotes
+### Footnotes
 
 Notated examples via [Noteflight](https://www.noteflight.com/)
 

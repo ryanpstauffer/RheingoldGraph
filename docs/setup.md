@@ -1,13 +1,12 @@
 # Setup
 
-The instructions below walkthrough how to setup the prototype in a Mac OSC environment.
+The instructions below walkthrough how to setup the prototype in a Mac OSX environment.
 
 There are 3 key parts of the setup:
 
 * Midi (for playback)
 * Neo4j (for the graph database backend)
-* Python virtual environment (for Python dependencies)
-
+* Python and dependencies
 
 ## Midi
 
@@ -34,7 +33,7 @@ Use Mac OSX Audio MIDI Setup to open up an IAC Driver MIDI Port
 
 Let's call it 'PythonMido'
 
-(Add Screenshots here)
+(_Add Screenshots here_)
 
 You'll need to link a Midi instrument to be able to play the output.  An easy test setup if you're on a Mac is to simply start up GarageBand. 
 
@@ -45,6 +44,8 @@ You'll need to link a Midi instrument to be able to play the output.  An easy te
 The RheingoldGraph prototype don't require any plugins or changes to the native Neo4j Community distribution.
 
 ### Running Neo4j with Docker locally
+If you already have Docker installed and running, simply run a container from the standard Neo4j.  We mount several directories in order to persist our database data even after our container is shutdown.
+
 ```
 docker run --rm -p 7474:7474 -p 7687:7687 \
 -v ~/Projects/Rheingold/neo4j/demo/data:/data \
@@ -52,12 +53,33 @@ docker run --rm -p 7474:7474 -p 7687:7687 \
 -v ~/Projects/Rheingold/neo4j/demo/import/:/var/lib/neo4j/import/ \
 neo4j:latest
 ```
+Note: By default Neo4j requires authentication. The first time you connect to your database, you have to login with Username 'neo4j' and Password 'neo4j', then set a new password.
 
-By default Neo4j requires authentication. The first time you connect to your database, you have to login with Username 'neo4j' and Password 'neo4j', then set a new password.
+## Python and Dependencies
 
-## Python Virtual Environment
-I recommend using conda as a Python package manager.
+### Dependencies
+* __Python 3.6__
+* __conda__ package and environment manager
+* All __Python dependencies__ found in the environment.yml file
 
+### Download and install MiniConda
+
+A simple and lightweight way to get up and running with Python 3.6 and conda is to download [Miniconda](https://conda.io/miniconda.html)
+
+#### Mac
+Follow the instructions at the link above, or download and install from the command line
+```
+curl -O https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
+sudo bash Miniconda3-latest-MacOSX-x86_64.sh
+```
+
+#### Linux
+```
+curl -O https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+sudo bash Miniconda3-latest-Linux-x86_64.sh
+```
+
+#### Creating a Virtual Environment
 Create a virtual environment for this project with all dependencies, then activate it
 ```
 conda-env create --name rheingoldgraph -f environment.yml
