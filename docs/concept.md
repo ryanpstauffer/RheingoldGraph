@@ -24,7 +24,7 @@ RheingoldGraph has three reasons for existing:
 2. As an integral part of broader research into applying machine intelligence on music understanding
 3. As a specific use case (music) to justify research into new data storage and retrieval concepts, insights from which can be applied to other (non-musical) domains
 
-In all three cases, our goal is to eventual have a clean abstraction above the lower levels issues of storing and retrieving music information.  With this in mind, the RheingoldGraph project seeks to streamline common low level data operations and eventually provide a clean API for use by both users and other future applications.
+In all three cases, our goal is to eventually have a clean abstraction above the lower levels issues of storing and retrieving music information.  With this in mind, the RheingoldGraph project seeks to streamline common low level data operations and eventually provide a clean API for use by both users and other future applications.
 
 In all three cases, the goal is to improve on current storage methods.  An overview of current storage methods will be released in [Part II](storagemethods.md) of this series.
 
@@ -182,9 +182,6 @@ Writing queries like this - even in a declarative language like Cypher - is some
 
 ### Next steps
 Now that some of the fundamental concepts and structure of the music graph have been laid out, the next part of this description will demonstrate an implementation of the music graph using an imperative language, explicitly defining our traversal and allowing streaming output directly from the graph to MIDI.  As we continue to extend this graph in the future, we will also have the opportunity to map the notation node to an actual sound itself.
-
-CONCLUSION NEEDED
-
 
 ### Footnotes
 

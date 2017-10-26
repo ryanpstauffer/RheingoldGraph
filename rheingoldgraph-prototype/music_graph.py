@@ -1,19 +1,17 @@
 """RheingoldGraph API on top of Neo4j."""
 
 import getpass
-from collections import namedtuple
 import os
 import uuid
 import re
 from timeit import default_timer as timer
-import pandas as pd
 
 from lxml import etree
 
 from neo4j.v1 import GraphDatabase, basic_auth
 
 from midi import GraphMidiPlayer
-from musicxml_parser import get_part_information_from_music_xml, get_part_notes
+from musicxml import get_part_information_from_music_xml, get_part_notes
 
 #### TODO
 # TODO(Ryan): Add chord support
@@ -708,42 +706,21 @@ def build_lines_from_xml(graph_client, filename, piece_name=None):
 
 
 if __name__ == '__main__':
+    #### Workflow Example
+    # Open up a connection to our graph (an local instance of Neo4j, run via Docker)
     graph_client = GraphAPI('localhost')
 
+    # Build a line from an xml file
+    filename = '../../xml/BachCelloSuiteDminPrelude.xml'
+    build_lines_from_xml(graph_client, filename, 'bach_cello')
 
-    # notes = parse_note_file('bach_cello_duration_in_names.csv')
+    # Build a playable line and play it with MIDI
+    graph_client.build_playable_line('bach_cello')
+    graph_client.play_line('bach_cello', 60)
 
-    # graph_client.delete_line('tie_test')
-    # notes = parse_note_file('note_pair_test.csv')
-    # build_single_line(graph_client, notes, 'tie_test')
+    # Remove the playable line if needed
+    graph_client.clear_playable_line('bach_cello')
 
-    # test = graph_client.get_midi_playable_line('new_bach')
-    # play_line(test)
-
-    # graph_client.play_line('new_bach', 60)
-
-    # build_single_line_with_ties(graph_client, 'bach_cello_with_ties.txt', 'new_bach_4')
-
-    #### Workflow Walkthrough
-    # Build a line from a test file (with ties)
-    # graph_client.delete_line('rest_test_6')
-    # build_single_line(graph_client, 'rest_test_3.txt', 'rest_test_6')
-    # graph_client.build_playable_line('new_bach_4')
-    # graph_client.play_line('new_bach_4', 60)
-
-
-    # ## We can also build this from an xml file
-    # filename = '../../xml/BachCelloSuiteDminPrelude.xml'
-    # build_lines_from_xml(graph_client, filename, 'bach_xml_3')
-
-    # # graph_client.clear_playable_line('bach_xml_3')
-    # graph_client.build_playable_line('bach_xml_3')
-
-    # TODO(Ryan): Simplify midi playing of line duration
-    graph_client.play_line('bach_xml_3', 60)
-
-    # Retrieve the line and play it
-    # test = graph_client.get_midi_playable_line('new_bach')
-    # play_line(test)
-
+    # Delete the line if we need to
+    graph_client.delete_line('bach_cello')
 

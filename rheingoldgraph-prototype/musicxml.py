@@ -1,15 +1,13 @@
-"""RheingoldGraph MusicXML Parser"""
+"""RheingoldGraph MusicXML Parser - Prototype
+
+# TODO(Ryan): Write chord support
+# TODO(Ryan): Write backup support
+"""
 
 from collections import namedtuple
-import os
-import uuid
-import re
-from timeit import default_timer as timer
-
 from lxml import etree
 
-# XMLPart = namedtuple('Part', ['id', 'name'])
-# XMLNote = namedtuple('Note', ['step', 'octave', 'alter'])
+### Define namedtuples and global variables
 
 # An XML note that is interpretable on a stand-alone basis
 XMLNote = namedtuple('Note', ['name', 'length', 'dot', 'tied'])
@@ -28,9 +26,7 @@ XML_LENGTH = {'1024th': 1024,
               'whole': 1, 
               'breve': 1/2}
 
-
-# TODO(Ryan): Write chord support
-# TODO(Ryan): Write backup support
+### Define classes
 
 class XMLPart(object):
     """MusicXML Part representation."""
@@ -39,6 +35,7 @@ class XMLPart(object):
         self.name = name
         self.notes = []
 
+### Define additional functions
 
 def get_part_information_from_music_xml(doc):
     """Get part information from a MusicXML file.
@@ -50,12 +47,6 @@ def get_part_information_from_music_xml(doc):
     Returns:
         part_list: list of XMLPart objects
     """
-    # part_list = []
-
-    # for p in doc.find('part-list').findall('score-part'):
-    #     temp_part = XMLPart(p.get('id'), p.find('part-name').text)
-    #     part_list.append(temp_part)
-
     part_list = [XMLPart(p.get('id'), p.find('part-name').text) for p \
                  in doc.find('part-list').findall('score-part')]
 
@@ -76,10 +67,6 @@ def get_part_notes(part_id, doc):
     note_list = []
 
     for note in part_data.findall('measure/note'):
-
-        # pitch_class = note_0.find('pitch/step').text
-        # octave = int(note_0.find('pitch/octave').text)
-
         # Build note name
         if note.find('rest') is None:
             # Get pitch_class_base 
@@ -106,9 +93,7 @@ def get_part_notes(part_id, doc):
         # Build length
         # Length is now interpreted from the note type, not the XML duration 
         # length = divisions * 4 / int(note.find('duration').text)
-        # print(note.find('type').text)
         length = XML_LENGTH[note.find('type').text]
-        # print(length)
 
         # Get dots
         dot = len(note.findall('dot'))
@@ -134,63 +119,3 @@ if __name__ == '__main__':
         part.notes = get_part_notes(part.id, doc)
 
         print(part.notes)
-
-    # print(part_list)
-
-    # note_0 = part_data.find('measure/note')
-    # print(note_0)
-
-    # # pitch_class = note_0.find('pitch/step').text
-    # # octave = int(note_0.find('pitch/octave').text)
-
-    # length = int(divisions * 4 / int(note_0.find('duration').text))
-
-    # note_name = note_0.find('pitch/step').text + note_0.find('pitch/octave').text
-
-    # print(note_name, length)
-
-
-
-    # This should pull the part by the previously defined part id
-    # for part in parts:
-    #     print(part.id)
-    #     part_data = doc.find("part[@id='{0}']".format(part.id))
-    #     print(part_data)
-
-
-    #     # Set the division of the quarter
-    #     # Technically, the divisions for each part could change after the first measure
-    #     # Our initial parser assumes they remain constant
-    #     divisions = int(part_data.find('measure/attributes/divisions').text)
-
-    #     print(divisions)
-
-    #     # Get all notes
-    #     # notes = part_data.findall('measure/note')
-    #     # print(notes)
-
-    #     # Test this for a single note
-    #     note_0 = part_data.find('measure/note')
-    #     print(note_0)
-
-    #     # pitch_class = note_0.find('pitch/step').text
-    #     # octave = int(note_0.find('pitch/octave').text)
-
-    #     length = int(divisions * 4 / int(note_0.find('duration').text))
-
-    #     note_name = note_0.find('pitch/step').text + note_0.find('pitch/octave').text
-
-    #     print(note_name, length)
-
-
-
-    # part_data = doc.findall('part')[0]
-
-
-
-    # print(divisions)
-
-    # for measure in part_data[0:1]:
-    #     for x in measure.findall('note'):
-    #         print(x)
-
