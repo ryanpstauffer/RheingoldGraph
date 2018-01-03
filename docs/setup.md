@@ -41,7 +41,7 @@ You'll need to link a Midi instrument to be able to play the output.  An easy te
 ## Neo4j
 [Neo4j](https://neo4j.com/) is a native property graph database.  It provides a simple backend database for this prototype.  An easy way to deploy Neo4j is with Docker.  If you're not already running Docker, please see the [Docker](https://www.docker.com) website for official installation instructions.
 
-The RheingoldGraph prototype don't require any plugins or changes to the native Neo4j Community distribution.
+The RheingoldGraph prototype doesn't require any plugins or changes to the native Neo4j Community distribution.
 
 ### Running Neo4j with Docker locally
 If you already have Docker installed and running, simply run a container from the standard Neo4j.  We mount several directories in order to persist our database data even after our container is shutdown.
