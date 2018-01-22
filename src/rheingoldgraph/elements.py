@@ -71,6 +71,21 @@ class Note:
     def to_dict(self):
         return self.__dict__
 
+    @classmethod
+    def from_dict(cls, mapping):
+        mapping = mapping.copy()
+        label = mapping.pop('label')
+        vid = mapping.pop('id')
+    
+        # There's a more elegant way to build new notes w/ error handling, but I'll add it later
+        note = Note()
+        for key, value in mapping.items():
+            setattr(note, key, value)
+        #        print(note)
+
+        return note
+   
+ 
 
 def add_note(g, note, prev_note=None, line_name=None):
     """Add a Note vertex to the graph.
@@ -93,13 +108,16 @@ def add_note(g, note, prev_note=None, line_name=None):
     return added_note
 
 
-def add_line(g, note_list):
+def add_line(g, note_list, line_name):
     """Add a series of Notes to the graph
 
     g: GraphTraversalSource
     note_list: list of Notes (ordered)
     """
-    traversal = g.addV(note_list[0].label)
+    # Create a new line
+    traversal = g.addV('Line').property('name', line_name).as_('l')
+    
+    # Add notes to the line
     note_counter = 0
     new_notes = []
     for note in note_list:
@@ -115,8 +133,9 @@ def add_line(g, note_list):
         note_counter += 1
     
     # Add edges
+    traversal = traversal.addE('start').from_('l').to('n_0') 
     for n0, n1 in zip(new_notes, new_notes[1:]):
-        traversal.addE('next').from_(n0).to(n1)
+        traversal = traversal.addE('next').from_(n0).to(n1)
     
     traversal.next()
     print('Line {0} and {1} notes added'.format('Test', len(new_notes)))
@@ -125,43 +144,62 @@ def add_line(g, note_list):
 def get_note(g, note):
     """get a Note vertex from the graph.
     """
+    # This is still a mess
     traversal = g.V(10).hasLabel(note.label)
     vertex = traversal.next()
     result = g.V(vertex.id).as_('v').properties().as_('p').select('v', 'p').toList() 
    
-    print(result)
+    prop_dict = build_prop_dict_from_results(result)
 
+    return Note.from_dict(prop_dict)
+
+
+def get_line(g, line_name):
+    """Get all notes in a musical line from the graph.
+
+    Use multiple traversals for generator functionality.
+    This ensures that even a very large music line can be efficiently iterated.
+    """
+    # This method using multiple traversals to return data iteratively
+    result = g.V().hasLabel('Line').has('name', line_name).out('start') \
+              .as_('v').properties().as_('p').select('v', 'p').toList() 
+
+    while result != []:
+        prop_dict = build_prop_dict_from_results(result)
+        last_id = prop_dict['id']
+        yield Note.from_dict(prop_dict)
+
+        result = g.V(('id', last_id)).out('next') \
+                  .as_('v').properties().as_('p').select('v', 'p').toList()    
+
+
+def build_prop_dict_from_results(result):
     # Build our note dict of properties
     vertex = result[0]['v']
-    
     prop_dict = {prop['p'].key: prop['p'].value for prop in result}
 
     prop_dict['id'] = vertex.id
-
+    prop_dict['label'] = vertex.label
     print(prop_dict)
+    
+    return prop_dict
 
-    # There's a more elegant way to build new notes, but I'll add it later
-    note = Note()
-    for key, value in prop_dict.items():
-        setattr(note, key, value)
-        print(note)
 
-    return note
-   
-     
 if __name__ == "__main__":
     print('Test of Gremlin graph build.')
     graph = Graph()
     server_uri = 'ws://localhost:8182/gremlin'
     g = graph.traversal().withRemote(DriverRemoteConnection(server_uri, 'g'))
     
-    n0 = Note('D4', 3, 0)
-    n1 = Note(name='D5')
+    # n0 = Note('D4', 3, 0)
+    # n1 = Note(name='D5')
  
-    new_note = add_note(g, n0)
-    returned_note = get_note(g, n0)
+    # new_note = add_note(g, n0)
+    # returned_note = get_note(g, n0)
 
-    add_line(g, [Note('D3', 4, 0),  Note('F3', 4, 0), Note('A3', 2, 0)])
+    # add_line(g, [Note('D3', 4, 0),  Note('F3', 4, 0), Note('A3', 2, 0)], 'test')
+    x = get_line(g, 'test')    
+    # id should be read-only
 
     # C
     # # This logic isnt' perfect, but should work for now
