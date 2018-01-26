@@ -22,7 +22,7 @@ setup(
         'Operating System :: Unix',
         'Operating System :: POSIX',
         'Programming Language :: Python',
-        'Programming Languaged :: Python :: 3'
+        'Programming Language :: Python :: 3'
     ],
     install_requires=[
         'gremlinpython==3.3.1',

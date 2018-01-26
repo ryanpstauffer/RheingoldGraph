@@ -10,8 +10,8 @@ from lxml import etree
 ### Define namedtuples and global variables
 
 # An XML note that is interpretable on a stand-alone basis
-XMLNote = namedtuple('Note', ['name', 'length', 'dot', 'tied'])
-
+# XMLNote = namedtuple('Note', ['name', 'length', 'dot', 'tied'])
+XMLNote = namedtuple('XMLNote', ['name', 'length', 'dot', 'tied'])
 # Note: Breve support is currently weak.  This should not affect the playability of most scores
 XML_LENGTH = {'1024th': 1024,
               '512th': 512,
@@ -51,6 +51,17 @@ def get_part_information_from_music_xml(doc):
                  in doc.find('part-list').findall('score-part')]
 
     return part_list
+
+
+def parse_xml(filename):
+    doc = etree.parse(filename)
+
+    part_list = get_part_information_from_music_xml(doc)
+
+    for part in part_list:
+        part.notes = get_part_notes(part.id, doc)
+
+        print(part.notes)
 
 
 def get_part_notes(part_id, doc):
@@ -109,8 +120,9 @@ def get_part_notes(part_id, doc):
     return note_list
 
 
+
 if __name__ == '__main__':
-    filename = '../../xml/BachCelloSuiteDminPrelude.xml'
+    filename = '../../scores/BachCelloSuiteDminPrelude.xml'
     doc = etree.parse(filename)
 
     part_list = get_part_information_from_music_xml(doc)
