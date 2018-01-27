@@ -45,6 +45,8 @@ class Note:
     length = PropertyDescriptor('length')
     dot = PropertyDescriptor('dot')
 
+    _properties = ['name', 'length', 'dot']
+
     # name = goblin.Property(goblin.String)
     # length = goblin.Property(goblin.Float) 
     # dot = goblin.Property(goblin.Integer, default=0)
@@ -54,35 +56,46 @@ class Note:
         self.name = name
         self.length = length
         self.dot = dot
-        self.id = None
+        self._id = None
+
+
+    @property
+    def id(self):
+        return self._id
  
+
     def __repr__(self):
         return "Note(name={0!r}, length={1!r}, dot={2!r})".format(self.name, self.length, self.dot)
 
     
     def __eq__(self, other):
-        # TODO(Ryan): This should be modified to take into account equality EXCLUDING DB ID
-        # Desired behavior: Note('D3', 4.0, 0) == Note('D3', 4.0, 0) REGARDLESS of ID in the database
+        # Equality does not depend on ID within the Database 
+        # Ex: Note('D3', 4.0, 0) == Note('D3', 4.0, 0) REGARDLESS of ID in the database
         if isinstance(other, Note):
-            return self.to_dict() == other.to_dict() 
+            return self.property_dict() == other.property_dict() 
         else:
             return False
 
 
+    # Is this method necessary?
     def to_dict(self):
         return self.__dict__
+
+
+    def property_dict(self):
+        return {key: getattr(self, key, None) for key in self._properties}        
+
 
     @classmethod
     def from_dict(cls, mapping):
         mapping = mapping.copy()
         label = mapping.pop('label')
-        vid = mapping.pop('id')
-    
-        # There's a more elegant way to build new notes w/ error handling, but I'll add it later
+        # TODO(Ryan): Type should be determined from label
         note = Note()
+        note._id  = mapping.pop('id', None)
+        # There's a more elegant way to build new notes w/ error handling, but I'll add it later
         for key, value in mapping.items():
             setattr(note, key, value)
-        #        print(note)
 
         return note
    
