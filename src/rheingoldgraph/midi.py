@@ -4,6 +4,7 @@ import itertools
 import time
 from collections import namedtuple
 
+import mido
 from mido import Message, bpm2tempo, open_output
 mido.set_backend('mido.backends.rtmidi')
 

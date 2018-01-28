@@ -6,8 +6,8 @@ from gremlin_python.structure.graph import Graph
 from lxml import etree
 from musicxml import get_part_information_from_music_xml, get_part_notes
 
-from rheingoldgraph.elements import Line, Note
-
+from rheingoldgraph.elements import Line, Note, PlayableNote
+from rheingoldgraph.midi import GraphMidiPlayer
 
 class Session:
     def __init__(self, server_uri):
@@ -29,7 +29,7 @@ class Session:
         line_name
         """
         # Create a new line if it doesn't already exist
-        line = find_line(line_name)
+        line = self.find_line(line_name)
         if line:
             print("Line already exists")
             return
@@ -157,7 +157,7 @@ class Session:
     def drop_line(self, line_name):
         """Remove a line and all associated musical content.
         """
-        self.g.V().hasLabel('Line').has('name', line_name).out('in_line').drop().iterate()
+        self.g.V().hasLabel('Line').has('name', line_name).in_('in_line').drop().iterate()
         self.g.V().hasLabel('Line').has('name', line_name).drop().iterate()
 
         # Confirm that Line has been deleted
@@ -176,7 +176,7 @@ class Session:
 
         prop_dict['id'] = vertex.id
         prop_dict['label'] = vertex.label
-        print(prop_dict)
+        # print(prop_dict)
         
         return prop_dict
 
@@ -221,8 +221,6 @@ class Session:
             tie_flag = False
             for xml_note in part.notes:
                 note = Note(xml_note.name, xml_note.length, xml_note.dot)
-                print(note)
-                print(prev_note)
 
                 # Slightly different traversals depending on if this is the first note of the line
                 if prev_note is None:
@@ -235,7 +233,6 @@ class Session:
                     traversal = traversal.addE('next').from_('prev').to('new')
 
                     if tie_flag:
-                        print("Add tie")
                         traversal = traversal.addE('tie').from_('prev').to('new')
                         tie_flag = False
 
@@ -243,40 +240,82 @@ class Session:
 
                 # Get recently added note
                 # This should be a full Note object
-                print(traversal)
                 prev_note = traversal.select('new').next() 
                 note_counter += 1
         
                 if xml_note.tied:
                     tie_flag = True
-                    print(xml_note.tied)
 
             print('Line {0} ({1} notes) added'.format(line_name, note_counter))
 
      
+    def get_playable_line(self, line_name):
+        """Iterate through a notation line and build a playable representation in place."""
+        # Check if line exists
+        # Create a new line if it doesn't already exist
+        line = self.find_line(line_name)
+        if not line:
+            # TODO(Ryan): Should return error
+            print("Line {0} does not exist".format(line_name))
+            return
+
+        ticks_per_beat = 480
+
+        result = self.g.V().hasLabel('Line').has('name', line_name).out('start') \
+                     .as_('v').properties().as_('p').select('v', 'p').toList() 
+
+        play_duration = 0
+        while result != []:
+            note_dict = self._build_prop_dict_from_result(result)
+            last_id = note_dict['id']
+            
+            play_duration += 1/note_dict['length'] * (2 - (1 / 2**note_dict['dot'])) * 4 * ticks_per_beat
+
+            try:
+                self.g.V(last_id).out('tie').next() 
+                # print('tie')
+            except StopIteration:
+                play_dict = {'label': 'PlayableNote', 'name': note_dict['name']}
+                play_dict['duration'] = play_duration
+                yield PlayableNote.from_dict(play_dict) 
+
+                play_duration = 0
+                
+            result = self.g.V(('id', last_id)).out('next') \
+                           .as_('v').properties().as_('p').select('v', 'p').toList()    
+
+ 
+    def play_line(self, line_name, tempo):
+        """Play a line with MIDI instrument.
+    
+        """
+        notes = self.get_playable_line(line_name)
+
+        midi_port = 'IAC Driver MidoPython'
+        # We pass a generator (notes) to the GraphMidiPlayer
+        m = GraphMidiPlayer(notes, tempo)
+        m.play(midi_port)
+
 
 if __name__ == "__main__":
     print('Test of Gremlin graph build.')
-    # graph = Graph()
     server_uri = 'ws://localhost:8182/gremlin'
-    # g = graph.traversal().withRemote(DriverRemoteConnection(server_uri, 'g'))
     
-    # n0 = Note('D4', 3, 0)
-    # n1 = Note(name='D5')
- 
-    # new_note = add_note(g, n0)
-    # returned_note = get_note(g, n0)
+    session = Session(server_uri)
+    note_list = [Note('D3', 4, 0),  Note('F3', 4, 0), Note('A3', 2, 0)]
+    test = session.add_line_iterative(note_list, 'test')
 
-    # note_list = [Note('D3', 4, 0),  Note('F3', 4, 0), Note('A3', 2, 0)]
-    # test = add_line_iterative(g, note_list, 'test')
+    # Testing PlayableLine
+    play = session.get_playable_line('test')
     # x = get_line_and_notes(g, 'test')    
 
     # drop_line(g, 'test')
     # y = get_line(g, 'test')
 
     # Build a line from an xml file
-    session = Session(server_uri)
     filename = 'scores/BachCelloSuiteDminPrelude.xml'
-    traversal = session.build_lines_from_xml_iterative(filename, 'bach_cello')
+    session.build_lines_from_xml_iterative(filename, 'bach_cello')
 
-
+    play_bach = session.get_playable_line('test')
+    # session.drop_line('bach_cello')
+    session.play_line('bach_cello', 60)
