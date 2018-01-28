@@ -5,7 +5,7 @@ import time
 from collections import namedtuple
 
 import mido
-from mido import Message, bpm2tempo, open_output
+from mido import Message, bpm2tempo, open_output, MidiFile, MidiTrack
 mido.set_backend('mido.backends.rtmidi')
 
 MidiNote = namedtuple('MidiNote', ['value', 'time'], verbose=False)
@@ -91,3 +91,20 @@ class GraphMidiPlayer(object):
                 outport.reset()
                 outport.panic()
 
+
+    def save_to_file(self, filename):
+        mid = MidiFile(ticks_per_beat=self.ticks_per_beat)
+        track = MidiTrack()
+        mid.tracks.append(track)
+
+        elapsed = 0
+        for n in self.notes:
+            if n.name == 'R':
+                elapsed += int(n.duration) 
+            else:
+                note_value = self.midi_note[n.name]
+                track.append(Message('note_on', note=note_value, velocity=100, time=elapsed))
+                track.append(Message('note_off', note=note_value, velocity=127, time=int(n.duration)))
+                elapsed = 0
+        
+        mid.save(filename)

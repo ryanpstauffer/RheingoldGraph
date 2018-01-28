@@ -297,20 +297,30 @@ class Session:
         m.play(midi_port)
 
 
+    def save_line_to_midi(self, line_name, tempo, filename, *, excerpt_len=None):
+        """Save a music line to a .mid file.
+
+        Args:
+            line_name: Name of the line to save
+            tempo: Tempo
+            filename: name of the MIDI file to create, ex: my_midi.mid
+            excerpt_len: a integer number of notes to include
+        """
+        notes = self.get_playable_line(line_name)
+
+        if excerpt_len is not None:
+            notes = list(notes)[0:excerpt_len]
+
+        # We pass a generator (notes) to the GraphMidiPlayer
+        m = GraphMidiPlayer(notes, tempo)
+        m.save_to_file(filename)
+
+
 if __name__ == "__main__":
     print('Test of Gremlin graph build.')
     server_uri = 'ws://localhost:8182/gremlin'
     
     session = Session(server_uri)
-    note_list = [Note('D3', 4, 0),  Note('F3', 4, 0), Note('A3', 2, 0)]
-    test = session.add_line_iterative(note_list, 'test')
-
-    # Testing PlayableLine
-    play = session.get_playable_line('test')
-    # x = get_line_and_notes(g, 'test')    
-
-    # drop_line(g, 'test')
-    # y = get_line(g, 'test')
 
     # Build a line from an xml file
     filename = 'scores/BachCelloSuiteDminPrelude.xml'
@@ -318,4 +328,4 @@ if __name__ == "__main__":
 
     play_bach = session.get_playable_line('test')
     # session.drop_line('bach_cello')
-    session.play_line('bach_cello', 60)
+    # session.play_line('bach_cello', 60)
