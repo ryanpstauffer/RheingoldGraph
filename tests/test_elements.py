@@ -84,6 +84,7 @@ class TestNote(object):
         assert note == other
 
 
+# Old tests from Neo4j prototype
 # class NoteTestCase(unittest.TestCase):
 #     """Tests Note class functionality"""
 #     def setUp(self):
@@ -110,6 +111,3 @@ class TestNote(object):
 #         self.assertEqual(expected_octave, test_note.octave, 
 #                          msg="Note name C4 should be split into octave 4")
 
-
-# if __name__ == '__main__':
-#     unittest.main()

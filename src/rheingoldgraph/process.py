@@ -1,7 +1,6 @@
 # Music Graph process prototype 
 from gremlin_python.driver.driver_remote_connection import DriverRemoteConnection
 from gremlin_python.structure.graph import Graph
-# import goblin
 
 from lxml import etree
 from musicxml import get_part_information_from_music_xml, get_part_notes
@@ -24,7 +23,6 @@ class Session:
 
         This works better for now, but takes twice the time as the one-shot traversal.
 
-        g: GraphTraversalSource
         note_list: list of Notes (ordered)
         line_name
         """
@@ -110,6 +108,10 @@ class Session:
 
     def get_note_by_id(self, note_id):
         """Get a Note vertex from the graph.
+        
+        Args:
+            note_id: graph ID of note.  
+                Note that this must correspond to the type of identifier used by the graph engine
         """
         # This is still suboptimal 
         result = self.g.V(note_id).as_('v').properties().as_('p').select('v', 'p').toList() 
@@ -119,7 +121,11 @@ class Session:
 
 
     def find_line(self, line_name):
-        """Returns a Line vertex if it exists, otherwise return None.""" 
+        """Returns a Line vertex if it exists, otherwise return None.
+
+        Args:
+            line_name: Name of line to find
+        """ 
         try:
             result = self.g.V().hasLabel('Line').has('name', line_name) \
                          .as_('v').properties().as_('p').select('v', 'p').toList() 
@@ -141,6 +147,9 @@ class Session:
 
         Use multiple traversals for generator functionality.
         This ensures that even a very large music line can be efficiently iterated.
+
+        Args:
+            line_name: Name of line to retrieve
         """
         result = self.g.V().hasLabel('Line').has('name', line_name).out('start') \
                      .as_('v').properties().as_('p').select('v', 'p').toList() 
@@ -156,6 +165,9 @@ class Session:
 
     def drop_line(self, line_name):
         """Remove a line and all associated musical content.
+        
+        Args:
+            line_name: line name to drop
         """
         self.g.V().hasLabel('Line').has('name', line_name).in_('in_line').drop().iterate()
         self.g.V().hasLabel('Line').has('name', line_name).drop().iterate()
@@ -188,6 +200,10 @@ class Session:
             - Single voice
             - Ties
             - Dots
+        
+        Args:
+            filename: XML filename
+            piece_name: Name to give the piece of music, used for constructing line names (in current prototype)
         """
         #    start_time = timer()
         # TODO(Ryan): A traversal should only be broken up into parts IFF it is longer than the minimum length
@@ -250,9 +266,13 @@ class Session:
 
      
     def get_playable_line(self, line_name):
-        """Iterate through a notation line and build a playable representation in place."""
+        """Iterate through a notation line and return a playable representation.
+        Args:
+            line_name: Name of the musical line
+        returns:
+            generator object of PlayableNotes
+        """
         # Check if line exists
-        # Create a new line if it doesn't already exist
         line = self.find_line(line_name)
         if not line:
             # TODO(Ryan): Should return error
@@ -287,12 +307,14 @@ class Session:
  
     def play_line(self, line_name, tempo):
         """Play a line with MIDI instrument.
-    
+        Args:
+            line_name: Name of the line to play
+            tempo: tempo in bpm 
         """
         notes = self.get_playable_line(line_name)
 
         midi_port = 'IAC Driver MidoPython'
-        # We pass a generator (notes) to the GraphMidiPlayer
+        # We pass a generator of PlayableNotes (notes) to the GraphMidiPlayer
         m = GraphMidiPlayer(notes, tempo)
         m.play(midi_port)
 
