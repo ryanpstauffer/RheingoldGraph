@@ -4,7 +4,8 @@ import itertools
 import time
 from collections import namedtuple
 
-from mido import Message, bpm2tempo, open_output
+import mido
+from mido import Message, bpm2tempo, open_output, MidiFile, MidiTrack
 mido.set_backend('mido.backends.rtmidi')
 
 MidiNote = namedtuple('MidiNote', ['value', 'time'], verbose=False)
@@ -51,12 +52,7 @@ def build_midi_notes(num_octaves=9, naming='standard', middle_c_name='C4', middl
 
 
 class GraphMidiPlayer(object):
-    """Midi support to play notes from a music graph database.
-
-    For the prototype, this player only plays notes in batches.
-    The full version will allow streaming of music directly from the
-    graph database.
-    """
+    """Midi support to play notes from a music graph database."""
     def __init__(self, notes, tempo):
         """Args:
             notes: notes to play
@@ -64,7 +60,7 @@ class GraphMidiPlayer(object):
         """
         self.midi_note = build_midi_notes()
 
-        # This is hardcoded for now, but will become an input later
+        # Hardcoded ticks per beat
         self.ticks_per_beat = 480
 
         self.microseconds_per_beat = bpm2tempo(tempo)
@@ -95,3 +91,20 @@ class GraphMidiPlayer(object):
                 outport.reset()
                 outport.panic()
 
+
+    def save_to_file(self, filename):
+        mid = MidiFile(ticks_per_beat=self.ticks_per_beat)
+        track = MidiTrack()
+        mid.tracks.append(track)
+
+        elapsed = 0
+        for n in self.notes:
+            if n.name == 'R':
+                elapsed += int(n.duration) 
+            else:
+                note_value = self.midi_note[n.name]
+                track.append(Message('note_on', note=note_value, velocity=100, time=elapsed))
+                track.append(Message('note_off', note=note_value, velocity=127, time=int(n.duration)))
+                elapsed = 0
+        
+        mid.save(filename)

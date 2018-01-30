@@ -1,15 +1,15 @@
-# RheingoldGraph Prototype Readme
+# RheingoldGraph Readme
 
-RheingoldGraph Prototype is a demonstration of an initial concept of a graph representation of musical information.
+RheingoldGraph is a graph representation of musical information.  So far, the build has been focused on getting the core functionality and features correct rather than scale and optimization.
 
 ## Setup
 
-The instructions below walkthrough how to setup the prototype in a Mac OSX environment.
+These instructions walkthrough how to setup RheingoldGraph in a Mac OSX environment.
 
 There are 3 key parts of the setup:
 
 * Midi (for playback)
-* Neo4j (for the graph database backend)
+* Gremlin Server and TinkerGraph (for a graph database framework)
 * Python and dependencies
 
 ## Midi
@@ -33,34 +33,30 @@ Our python dependencies will be installed during the creation of our virtual env
 
 To use Midi with our prototype, you'll need to setup a MIDI port.
 
-Use Mac OSX Audio MIDI Setup to open up an IAC Driver MIDI Port
-
-Let's call it 'PythonMido'
-
-(_Add Screenshots here_)
+Use Mac OSX Audio MIDI Setup to open up an IAC Driver MIDI Port.  Let's call it __PythonMido__.
 
 You'll need to link a Midi instrument to be able to play the output.  An easy test setup if you're on a Mac is to simply start up GarageBand. 
 
+## Gremlin Server and TinkerGraph
+Gremlin Server is part of the [Apache TinkerPop](tinkerpop.apache.org) graph computing framework.  As a initial backend, we're using [TinkerGraph](tinkerpop.apache.org/docs/current/reference/#tinkergraph-gremlin).  TinkerGraph provides a simple in-memory, non-transactional graph engine for RheingoldGraph.  It's easy to configure and startup, and provides all the core functionality we need right now for feature building ad unit testing.
 
-## Neo4j
-[Neo4j](https://neo4j.com/) is a native property graph database.  It provides a simple backend database for this prototype.  An easy way to deploy Neo4j is with Docker.  If you're not already running Docker, please see the [Docker](https://www.docker.com) website for official installation instructions.
+### Downloading and running Gremlin Server
+RheingoldGraph is being developed to run on TinkerPop>=3.3.0.  Most testing has focused on TinkerPop 3.3.1, which can be download [here](https://www.apache.org/dyn/closer.lua/tinkerpop/3.3.1/apache-tinkerpop-gremlin-server-3.3.1-bin.zip).
 
-The RheingoldGraph prototype doesn't require any plugins or changes to the native Neo4j Community distribution.
+#### Setup
+_Automated setup script coming soon!_
 
-### Running Neo4j with Docker locally
-If you already have Docker installed and running, simply run a container from the standard Neo4j.  We mount several directories in order to persist our database data even after our container is shutdown.
-
+* Unzip the file
+* Add an alias
 ```
-docker run --rm -p 7474:7474 -p 7687:7687 \
--v ~/Projects/Rheingold/neo4j/demo/data:/data \
--v ~/Projects/Rheingold/neo4j/demo/logs:/logs \
--v ~/Projects/Rheingold/neo4j/demo/import/:/var/lib/neo4j/import/ \
-neo4j:latest
+alias gremserv='~/my/tinkerpop/server/bin/gremlin-server.sh'
 ```
-Note: By default Neo4j requires authentication. The first time you connect to your database, you have to login with Username 'neo4j' and Password 'neo4j', then set a new password.
+* Copy the Rheingold conf/ directory contents to the Gremlin Server conf/ directory 
+
+### Deploying Gremlin Server and TinkerGraph via Kubernetes
+_Coming soon!_
 
 ## Python and Dependencies
-
 ### Dependencies
 * __Python 3.6__
 * __conda__ package and environment manager
