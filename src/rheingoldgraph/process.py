@@ -3,8 +3,8 @@ from gremlin_python.driver.driver_remote_connection import DriverRemoteConnectio
 from gremlin_python.structure.graph import Graph
 
 from lxml import etree
-from musicxml import get_part_information_from_music_xml, get_part_notes
 
+from rheingoldgraph.musicxml import get_part_information_from_music_xml, get_part_notes
 from rheingoldgraph.elements import Line, Note, PlayableNote
 from rheingoldgraph.midi import GraphMidiPlayer
 
