@@ -15,8 +15,10 @@ if __name__ == "__main__":
     session = Session(server_uri)
 
     # Save a primer melody
-    primer_midi = '/Users/ryanstauffer/Projects/Rheingold/RheingoldGraph/bach.mid'
-    session.save_line_to_midi('bach_cello', 120, primer_midi, excerpt_len=11)
+    # primer_midi = '/Users/ryanstauffer/Projects/Rheingold/RheingoldGraph/bach.mid'
+    # session.save_line_to_midi('bach_cello', 120, primer_midi, excerpt_len=11)
+
+    primer_sequence = session.get_line_as_protobuf('bach_cello', 88, excerpt_len=20)
 
     # Magenta config build
     config = melody_rnn_model.default_configs['basic_rnn']
@@ -28,7 +30,7 @@ if __name__ == "__main__":
 
     output_dir = '/Users/ryanstauffer/Projects/Rheingold/magenta_data/melody_rnn/generated'
 
-    primer_sequence = magenta.music.midi_file_to_sequence_proto(primer_midi)
+    # primer_sequence = magenta.music.midi_file_to_sequence_proto(primer_midi)
     # Ignore additional tempo options for now...for simplicity  
 
     # Derive the total number of seconds to generate based on the QPM of the
