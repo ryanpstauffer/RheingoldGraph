@@ -3,6 +3,7 @@ from gremlin_python.driver.driver_remote_connection import DriverRemoteConnectio
 from gremlin_python.structure.graph import Graph
 
 from lxml import etree
+import numpy as np
 
 from magenta.protobuf import music_pb2
 
@@ -382,6 +383,96 @@ class Session:
  
         return sequence
 
+    def add_protobuf_to_graph(self, sequence, line_name):
+        """Add a Protocol Buffer sequence to the graph.
+
+        Args:
+            sequence: protobuf NoteSequence
+            line_name: name of the new line to be added to the graph
+        """
+        print("Adding protobuf sequence to RheingoldGraph line {0}".format(line_name))
+        # Create a new line if it doesn't already exist
+        line = self.find_line(line_name)
+        if line:
+            # TODO(Ryan): Should return error
+            print("Line already exists")
+            return
+        else:
+            # Should return a line object, but getting there...
+            line = self.g.addV('Line').property('name', line_name).next()
+
+        midi_notes = build_midi_notes()
+        midi_val_to_name = {val: key for key, val in midi_notes.items()}   
+
+        # Add notes to the line 
+        note_counter = 0
+        prev_note = None
+        for note in sequence.notes:
+            # Need to handle RESTS!
+            print(note)
+            
+            note_length_in_sec = note.end_time - note.start_time     
+            # print(note_length_in_sec)
+            
+            # Start by handling a single tempo
+            bpm = sequence.tempos[0].qpm
+
+            percent_of_whole = round((bpm * note_length_in_sec) / 240, 5)
+            # print(percent_of_whole)
+
+            # Converting note to note & dots
+            possible_values = [1, 0.5, 0.25, 0.125, 0.0625]
+        
+            tied_notes = []
+            remainder = percent_of_whole
+            for val in possible_values:
+                # print(val)
+                if val <= remainder:
+                    tied_notes.append(val)
+                    remainder -= val 
+                    # print(remainder)
+                    if remainder == 0:
+                        break 
+             
+            # Need additional algo to calc dots            
+            # dot = np.log2(4 / (8 - (main_value * note_length_in_sec * bpm / 60))) 
+            dot = 0
+            tie_flag = False
+            while len(tied_notes) > 0:
+                t_note = tied_notes.pop(0)
+                note_length = int(1 / t_note)
+                graph_note = Note(name=midi_val_to_name[note.pitch], length=note_length, dot=0)
+            
+                print(graph_note)
+                
+                # Slightly different traversals depending on if this is the first note of the line
+                if prev_note is None:
+                    traversal = self.g.V(line.id).as_('l')
+                    traversal = self._add_note_to_traversal(traversal, graph_note)
+                    traversal = traversal.addE('start').from_('l').to('new')
+                else:
+                    traversal = self.g.V(prev_note.id).as_('prev').out('in_line').as_('l')
+                    traversal = self._add_note_to_traversal(traversal, graph_note)
+                    traversal = traversal.addE('next').from_('prev').to('new')
+
+                    if tie_flag:
+                        traversal = traversal.addE('tie').from_('prev').to('new')
+                        tie_flag = False
+
+                traversal = traversal.addE('in_line').from_('new').to('l')
+
+                # Get recently added note
+                # This should be a full Note object
+                prev_note = traversal.select('new').next() 
+                note_counter += 1
+        
+                if len(tied_notes) > 0:
+                    tie_flag = True
+                    # print(tie_flag)
+
+            print('Line {0} ({1} notes) added'.format(line_name, note_counter))
+
+
 if __name__ == "__main__":
     print('Test of Gremlin graph build.')
     server_uri = 'ws://localhost:8182/gremlin'
@@ -393,5 +484,10 @@ if __name__ == "__main__":
     #     session.build_lines_from_xml_iterative(filename, 'bach_cello')
     
     play_bach = session.get_line_as_protobuf('bach_cello', 120, excerpt_len=11)
+    
+    # Test of add protobuf to grapg
+    session.add_protobuf_to_graph(play_bach, 'magenta_bach')
+
+
     # session.drop_line('bach_cello')
     # session.play_line('bach_cello', 60)

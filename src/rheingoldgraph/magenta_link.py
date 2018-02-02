@@ -18,7 +18,7 @@ if __name__ == "__main__":
     # primer_midi = '/Users/ryanstauffer/Projects/Rheingold/RheingoldGraph/bach.mid'
     # session.save_line_to_midi('bach_cello', 120, primer_midi, excerpt_len=11)
 
-    primer_sequence = session.get_line_as_protobuf('bach_cello', 88, excerpt_len=20)
+    primer_sequence = session.get_line_as_protobuf('bach_cello', 88, excerpt_len=15)
 
     # Magenta config build
     config = melody_rnn_model.default_configs['basic_rnn']
@@ -73,3 +73,6 @@ if __name__ == "__main__":
     midi_path = os.path.join(output_dir, new_midi_output) 
 
     magenta.music.sequence_proto_to_midi_file(generated_sequence, midi_path) 
+    new_line = 'magenta_final_thurs2'
+    session.add_protobuf_to_graph(generated_sequence, new_line)
+    session.play_line(new_line, 120)
