@@ -2,6 +2,7 @@
 from gremlin_python.driver.driver_remote_connection import DriverRemoteConnection
 from gremlin_python.structure.graph import Graph
 
+import pretty_midi
 from lxml import etree
 import numpy as np
 
@@ -268,13 +269,14 @@ class Session:
             print('Line {0} ({1} notes) added'.format(line_name, note_counter))
 
      
-    def get_playable_line(self, line_name, excerpt_len=None):
+    def get_playable_line(self, line_name, bpm, *, excerpt_len=None):
         """Iterate through a notation line and return a playable representation.
         Args:
             line_name: Name of the musical line
         returns:
             generator object of PlayableNotes
         """
+        # TODO(ryanpstauffer) This should yield protobuffers
         # Check if line exists
         line = self.find_line(line_name)
         if not line:
@@ -290,6 +292,8 @@ class Session:
         play_duration = 0
         num_notes_returned = 0
         excerpt_complete = False
+        default_velocity = 100
+        last_end_time = 0
         while result != [] and not excerpt_complete:
             note_dict = self._build_prop_dict_from_result(result)
             last_id = note_dict['id']
@@ -300,14 +304,26 @@ class Session:
                 self.g.V(last_id).out('tie').next() 
                 # print('tie')
             except StopIteration:
-                play_dict = {'label': 'PlayableNote', 'name': note_dict['name']}
-                play_dict['duration'] = play_duration
-                yield PlayableNote.from_dict(play_dict) 
+                note_length_in_sec = (60 / bpm) * (play_duration / ticks_per_beat)
+                if note_dict['name'] != 'R':
+                    note = music_pb2.NoteSequence.Note()
+                    note.pitch = pretty_midi.note_name_to_number(note_dict['name']) 
+                    note.velocity = default_velocity
 
-                num_notes_returned += 1 
-                if num_notes_returned == excerpt_len:
-                    excerpt_complete = True
+                    # Calc start and end times
+                    note.start_time = last_end_time
+                    note.end_time = note.start_time + note_length_in_sec
 
+                    yield note 
+
+                    last_end_time = note.end_time
+                    num_notes_returned += 1 
+                    if num_notes_returned == excerpt_len:
+                        excerpt_complete = True
+                
+                elif note_dict['name'] == 'R':
+                    last_end_time += note_length_in_sec 
+                    print('REST')
                 play_duration = 0
                 
             result = self.g.V(('id', last_id)).out('next') \
@@ -324,6 +340,7 @@ class Session:
 
         midi_port = 'IAC Driver MidoPython'
         # We pass a generator of PlayableNotes (notes) to the GraphMidiPlayer
+        # TODO(Ryan): We should pass a generator of protobuf notes
         m = GraphMidiPlayer(notes, tempo)
         m.play(midi_port)
 
@@ -382,6 +399,7 @@ class Session:
         sequence.total_time = last_end_time
  
         return sequence
+
 
     def add_protobuf_to_graph(self, sequence, line_name):
         """Add a Protocol Buffer sequence to the graph.
@@ -483,10 +501,11 @@ if __name__ == "__main__":
     # filename = 'scores/BachCelloSuiteDminPrelude.xml'
     #     session.build_lines_from_xml_iterative(filename, 'bach_cello')
     
-    play_bach = session.get_line_as_protobuf('bach_cello', 120, excerpt_len=11)
-    
+    # play_bach = session.get_line_as_protobuf('bach_cello', 120, excerpt_len=11)
+   
+    play_bach_2 = session.get_playable_line('bach_cello', 120)# , excerpt_len=25) 
     # Test of add protobuf to grapg
-    session.add_protobuf_to_graph(play_bach, 'magenta_bach')
+    # session.add_protobuf_to_graph(play_bach, 'magenta_bach')
 
 
     # session.drop_line('bach_cello')

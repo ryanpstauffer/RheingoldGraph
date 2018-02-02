@@ -4,6 +4,7 @@ from gremlin_python.structure.graph import Graph
 # Hopefully can eventually inherit from goblin?
 # import goblin
 
+from magenta.protobuf import music_pb2
 
 class PropertyDescriptor:
     def __init__(self, name):
@@ -97,6 +98,15 @@ class Note:
         for key, value in mapping.items():
             setattr(note, key, value)
 
+        return note
+
+
+    def to_protobuf(self):
+        """MVP of Protocol Buffer output."""
+        note = music_pb2.NoteSequence.Note() 
+        note.pitch = 50
+        note.denominator = self.length
+        
         return note
 
 
