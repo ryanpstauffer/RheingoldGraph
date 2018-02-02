@@ -6,10 +6,12 @@ import pretty_midi
 from lxml import etree
 import numpy as np
 
+import magenta
 from magenta.protobuf import music_pb2
 
+
 from rheingoldgraph.musicxml import get_part_information_from_music_xml, get_part_notes
-from rheingoldgraph.elements import Line, Note, PlayableNote
+from rheingoldgraph.elements import Line, Note
 from rheingoldgraph.midi import GraphMidiPlayer, build_midi_notes
 
 class Session:
@@ -274,7 +276,7 @@ class Session:
         Args:
             line_name: Name of the musical line
         returns:
-            generator object of PlayableNotes
+            generator object of protobuf Notes 
         """
         # TODO(ryanpstauffer) This should yield protobuffers
         # Check if line exists
@@ -332,6 +334,9 @@ class Session:
  
     def play_line(self, line_name, tempo):
         """Play a line with MIDI instrument.
+
+        This method streams protobuf Notes to a MIDI player
+
         Args:
             line_name: Name of the line to play
             tempo: tempo in bpm 
@@ -339,8 +344,8 @@ class Session:
         notes = self.get_playable_line(line_name)
 
         midi_port = 'IAC Driver MidoPython'
-        # We pass a generator of PlayableNotes (notes) to the GraphMidiPlayer
-        # TODO(Ryan): We should pass a generator of protobuf notes
+        # We pass a generator of protobuf Notes to the GraphMidiPlayer
+        # TODO(MIDI Player doesn't currently support protobuf notes!
         m = GraphMidiPlayer(notes, tempo)
         m.play(midi_port)
 
@@ -354,49 +359,30 @@ class Session:
             filename: name of the MIDI file to create, ex: my_midi.mid
             excerpt_len: a integer number of notes to include
         """
-        notes = self.get_playable_line(line_name, excerpt_len=excerpt_len)
-
-        # TODO(ryanstauffer) Reimplement w/ magenta sequence_proto_to_midi_file()
-
-        # We pass a generator (notes) to the GraphMidiPlayer
-        m = GraphMidiPlayer(notes, tempo)
-        m.save_to_file(filename)
+        sequence = self.get_line_as_note_sequence(line_name, tempo, excerpt_len=excerpt_len)
+        magenta.music.sequence_proto_to_midi_file(sequence, filename)
 
 
-    def get_line_as_protobuf(self, line_name, bpm, *, excerpt_len=None):
-        print('protobuf for RheingoldGraph MVP')
-        notes = self.get_playable_line(line_name, excerpt_len=excerpt_len)
+    def get_line_as_note_sequence(self, line_name, bpm, *, excerpt_len=None):
+        """Return a line from the graph as a protobuf NoteSequence.
 
-        # This is not the best way to do this
-        # Need to handle RESTS!
-        midi_notes = build_midi_notes()
+        This method returns the entire line (or an excerpt as a single NoteSequence.
+        This means that the entire line is ready to be processed in batch,
+        as opposed to streamed.
+        
+        """
+        print("Returning line {0} as NoteSequence protobuf".format(line_name))
+        notes = self.get_playable_line(line_name, bpm, excerpt_len=excerpt_len)
 
         sequence = music_pb2.NoteSequence()
 
         # Populate header
         ticks_per_beat = 480
         sequence.ticks_per_quarter = ticks_per_beat
-        tempo = sequence.tempos.add() 
-        tempo.qpm = bpm
+        sequence.tempos.add(qpm=bpm) 
 
-        # Keep a standard velocity to begin with
-        velocity = 100 
-
-        last_end_time= 0 
-        for graph_note in notes:  
-            print(graph_note)
-            note = sequence.notes.add()
-            note.pitch = midi_notes[graph_note.name]
-            note.velocity = velocity
-
-            # Calc start and end times
-            note.start_time = last_end_time
-            note_length_in_sec = (60 / bpm) * (graph_note.duration / ticks_per_beat)
-            note.end_time = note.start_time + note_length_in_sec
-
-            last_end_time = note.end_time
-
-        sequence.total_time = last_end_time
+        sequence.notes.extend([n for n in notes]) 
+        sequence.total_time = sequence.notes[-1].end_time 
  
         return sequence
 
@@ -501,9 +487,9 @@ if __name__ == "__main__":
     # filename = 'scores/BachCelloSuiteDminPrelude.xml'
     #     session.build_lines_from_xml_iterative(filename, 'bach_cello')
     
-    # play_bach = session.get_line_as_protobuf('bach_cello', 120, excerpt_len=11)
+    play_bach = session.get_line_as_note_sequence('bach_cello', 120, excerpt_len=11)
    
-    play_bach_2 = session.get_playable_line('bach_cello', 120)# , excerpt_len=25) 
+    # play_bach_2 = session.get_playable_line('bach_cello', 120)# , excerpt_len=25) 
     # Test of add protobuf to grapg
     # session.add_protobuf_to_graph(play_bach, 'magenta_bach')
 
