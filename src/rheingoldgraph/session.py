@@ -1,6 +1,8 @@
-# Music Graph process prototype 
+# Rheingold Graph session
 from gremlin_python.driver.driver_remote_connection import DriverRemoteConnection
 from gremlin_python.structure.graph import Graph
+from gremlin_python import statics
+statics.load_statics(globals())
 
 import pretty_midi
 from lxml import etree
@@ -12,7 +14,7 @@ from magenta.protobuf import music_pb2
 
 from rheingoldgraph.musicxml import get_part_information_from_music_xml, get_part_notes
 from rheingoldgraph.elements import Line, Note
-from rheingoldgraph.midi import GraphMidiPlayer, build_midi_notes
+from rheingoldgraph.midi import MIDIEngine
 
 class Session:
     def __init__(self, server_uri):
@@ -137,7 +139,6 @@ class Session:
                          .as_('v').properties().as_('p').select('v', 'p').toList() 
             if result == []:
                 return None
-            print(result)
             prop_dict = self._build_prop_dict_from_result(result)
             # TODO(Ryan): Use an alternate constructor
             line = Line()
@@ -175,6 +176,12 @@ class Session:
         Args:
             line_name: line name to drop
         """
+        # Check that line exists
+        line = self.find_line(line_name)
+        if not line:
+            print("Line {0} does not exist".format(line_name))
+            return
+
         self.g.V().hasLabel('Line').has('name', line_name).in_('in_line').drop().iterate()
         self.g.V().hasLabel('Line').has('name', line_name).drop().iterate()
 
@@ -341,13 +348,13 @@ class Session:
             line_name: Name of the line to play
             tempo: tempo in bpm 
         """
-        notes = self.get_playable_line(line_name)
+        notes = self.get_playable_line(line_name, tempo)
 
         midi_port = 'IAC Driver MidoPython'
         # We pass a generator of protobuf Notes to the GraphMidiPlayer
         # TODO(MIDI Player doesn't currently support protobuf notes!
-        m = GraphMidiPlayer(notes, tempo)
-        m.play(midi_port)
+        m = MIDIEngine(midi_port, ticks_per_beat=480)
+        m.play_protobuf(notes)
 
 
     def save_line_to_midi(self, line_name, tempo, filename, *, excerpt_len=None):
@@ -359,11 +366,11 @@ class Session:
             filename: name of the MIDI file to create, ex: my_midi.mid
             excerpt_len: a integer number of notes to include
         """
-        sequence = self.get_line_as_note_sequence(line_name, tempo, excerpt_len=excerpt_len)
+        sequence = self.get_line_as_sequence_proto(line_name, tempo, excerpt_len=excerpt_len)
         magenta.music.sequence_proto_to_midi_file(sequence, filename)
 
 
-    def get_line_as_note_sequence(self, line_name, bpm, *, excerpt_len=None):
+    def get_line_as_sequence_proto(self, line_name, bpm, *, excerpt_len=None):
         """Return a line from the graph as a protobuf NoteSequence.
 
         This method returns the entire line (or an excerpt as a single NoteSequence.
@@ -386,9 +393,42 @@ class Session:
  
         return sequence
 
+    
+    def visualize_line(self, line_name, tempo, *, excerpt_len=None):
+        """Visualize a line in a piano roll.
+        
+        TODO: This method doesn't work!
+        """
+        sequence = self.get_line_as_sequence_proto(line_name, tempo, excerpt_len=excerpt_len)
+        pm = magenta.music.sequence_proto_to_pretty_midi(sequence)
+      
+        fs = 100 
+        librosa.display.specshow(pm.get_piano_roll(fs), hop_length=1, sr=fs, x_axis='time', 
+                                 y_axis='cqt_note') 
+        
+        return pm
 
-    def add_protobuf_to_graph(self, sequence, line_name):
-        """Add a Protocol Buffer sequence to the graph.
+
+    def graph_summary(self):
+        """Print a summary of musical information in our graph.
+        """
+        # Get graph summary stats
+        total_vertices = self.g.V().count().next()
+        total_edges = self.g.E().count().next()
+        num_lines = self.g.V().hasLabel('Line').count().next()
+        line_summary = self.g.V().hasLabel('Line').group().by('name') \
+                              .by(inE('in_line').count()).next() 
+
+        # Print graph summary
+        print("Total Vertices: {0}".format(total_vertices))
+        print("Total Edges: {0}".format(total_edges))
+        print("Number of Lines: {0}\n----------------".format(num_lines))
+        for key, val in line_summary.items():
+            print("{0}: {1}".format(key, val))
+  
+
+    def add_sequence_proto_to_graph(self, sequence, line_name):
+        """Add a Protocol Buffer Note Sequence to the graph.
 
         Args:
             sequence: protobuf NoteSequence
@@ -404,9 +444,6 @@ class Session:
         else:
             # Should return a line object, but getting there...
             line = self.g.addV('Line').property('name', line_name).next()
-
-        midi_notes = build_midi_notes()
-        midi_val_to_name = {val: key for key, val in midi_notes.items()}   
 
         # Add notes to the line 
         note_counter = 0
@@ -445,7 +482,7 @@ class Session:
             while len(tied_notes) > 0:
                 t_note = tied_notes.pop(0)
                 note_length = int(1 / t_note)
-                graph_note = Note(name=midi_val_to_name[note.pitch], length=note_length, dot=0)
+                graph_note = Note(name=pretty_midi.note_number_to_name(note.pitch), length=note_length, dot=0)
             
                 print(graph_note)
                 
@@ -487,8 +524,10 @@ if __name__ == "__main__":
     # filename = 'scores/BachCelloSuiteDminPrelude.xml'
     #     session.build_lines_from_xml_iterative(filename, 'bach_cello')
     
-    play_bach = session.get_line_as_note_sequence('bach_cello', 120, excerpt_len=11)
-   
+    # play_bach = session.get_line_as_sequence_proto('bach_cello', 120, excerpt_len=11)
+    # pm = session.visualize_line('bach_cello', 120, excerpt_len=10)
+    # session.play_line('bach_cello', 120)
+     
     # play_bach_2 = session.get_playable_line('bach_cello', 120)# , excerpt_len=25) 
     # Test of add protobuf to grapg
     # session.add_protobuf_to_graph(play_bach, 'magenta_bach')

@@ -1,78 +1,125 @@
 """Initial work on linking Magenta/TF with RheingoldGraph."""
 import os
+import time
+from collections import namedtuple
 
-from rheingoldgraph.process import Session
-
+import tensorflow as tf
 import magenta
 from magenta.protobuf import generator_pb2
 from magenta.models.melody_rnn import melody_rnn_model
 from magenta.models.melody_rnn import melody_rnn_sequence_generator
 
-if __name__ == "__main__":
-    print('Test of Gremlin/Magenta interface.')
-    server_uri = 'ws://localhost:8182/gremlin'
-    
-    session = Session(server_uri)
+from rheingoldgraph.session import Session
 
-    # Save a primer melody
-    # primer_midi = '/Users/ryanstauffer/Projects/Rheingold/RheingoldGraph/bach.mid'
-    # session.save_line_to_midi('bach_cello', 120, primer_midi, excerpt_len=11)
 
-    primer_sequence = session.get_line_as_protobuf('bach_cello', 88, excerpt_len=15)
+# TODO(ryan): This module may eventually be altered to run off FLAGS,
+# Or a protobuf similar to generator options
+# But for simplicity right now just using namedtuple 
+RheingoldMagentaConfig = namedtuple('RheingoldMagentaConfig',
+                                   ['primer_line_name',
+                                    'primer_len',
+                                    'num_outputs',
+                                    'qpm',
+                                    'num_steps'])
 
-    # Magenta config build
-    config = melody_rnn_model.default_configs['basic_rnn']
-    
-    model = melody_rnn_model.MelodyRnnModel(config)
+def run_with_config(generator, session, config):
+    """Generates melodies and adds them to a RheingoldGraph instance.
 
-    bundle_file = '/Users/ryanstauffer/Projects/Rheingold/magenta_data/mag/basic_rnn.mag'
-    bundle = magenta.music.read_bundle_file(bundle_file)   
+    TF & Magenta interaction based on Magenta melody_rnn_generate.py
 
-    output_dir = '/Users/ryanstauffer/Projects/Rheingold/magenta_data/melody_rnn/generated'
+    Args:
+        generator: The MelodyRnnSequencedGenerator to use for melody generation
+    """
+    # Define a primer line
+    # config.primer_line_name = 'bach_cello' 
+    # config.primer_len = 11 
 
-    # primer_sequence = magenta.music.midi_file_to_sequence_proto(primer_midi)
-    # Ignore additional tempo options for now...for simplicity  
+    # config.qpm = 120
 
+    primer_sequence = None
+    if config.primer_line_name:
+        primer_sequence = session.get_line_as_sequence_proto(config.primer_line_name,
+                                                             config.qpm,
+                                                             excerpt_len=config.primer_len)
+    else:
+        tf.logging.warning(
+            'No priming sequence specified. Defaulting to a single middle C.')
+        primer_melody = magenta.music.Melody([60])
+        primer_sequence = primer_melody.to_sequence(qpm)
+
+    # num_steps = 128 # FLAG?
     # Derive the total number of seconds to generate based on the QPM of the
-    # priming sequence and num_steps
+    # priming sequence and the num_steps flag
+    # TODO(ryan): is this the best way to do this w/ Rheingold Graph?
+    seconds_per_step = 60.0 / config.qpm / generator.steps_per_quarter
+    total_seconds = config.num_steps * seconds_per_step
 
-    # Standard default from README
-    num_steps = 128
-
-    # There seems to be a weird relationship between my primer QPM and the output...
-    quarters_per_minute = 60.0
-    seconds_per_step = 60.0 / quarters_per_minute / config.steps_per_quarter
-    total_seconds = num_steps * seconds_per_step
-
+    # Specify start/stop time for generation based on starting generation at the
+    # end of the priming sequence and continuing until the sequence is num_steps
+    # long.
     generator_options = generator_pb2.GeneratorOptions()
-
-    # From melody_rnn_generate line 174
-    input_sequence = primer_sequence
-    # Set the start time to being on the next step after the last note ends
     last_end_time = (max(n.end_time for n in primer_sequence.notes)
                      if primer_sequence.notes else 0)
     generate_section = generator_options.generate_sections.add(
         start_time=last_end_time + seconds_per_step,
         end_time=total_seconds)
 
-    # Don't worry about robust error handling now (ex: primer sequence longer than num steps
+    if generate_section.start_time >= generate_section.end_time:
+        tf.logging.fatal(
+            'Priming sequence is longer than the total number of step '
+            'requested: Priming sequence length: %s, Generation length '
+            'requested: %s',
+            generate_section.start_time, total_seconds)
+        return
+
+    # TODO(ryan): have these take FLAGS?
     generator_options.args['temperature'].float_value = 1.0
     generator_options.args['beam_size'].int_value = 1
     generator_options.args['branch_factor'].int_value = 1
     generator_options.args['steps_per_iteration'].int_value = 1
-    
-    # Start with generating and saving a single midi file!
-    generator = melody_rnn_sequence_generator.MelodyRnnSequenceGenerator(
-        model=melody_rnn_model.MelodyRnnModel(config),
-        details=config.details,
-        steps_per_quarter=config.steps_per_quarter,
-        bundle=bundle)
-    generated_sequence = generator.generate(input_sequence, generator_options)
-   
-    new_midi_output = 'magenta_test.mid' 
-    midi_path = os.path.join(output_dir, new_midi_output) 
+    tf.logging.debug('primer_sequence: %s', primer_sequence)
+    tf.logging.debug('generator_options: %s', generator_options)
 
-    magenta.music.sequence_proto_to_midi_file(generated_sequence, midi_path) 
-    new_line = 'magenta_final_thurs2'
-    session.add_protobuf_to_graph(generated_sequence, new_line)
-    session.play_line(new_line, 120)
+    # Make the generate request num_outputs times and save the output
+    # to RheingoldGraph
+    # num_outputs = 1
+    date_and_time = time.strftime('%Y-%m-%d_%H%M%S')
+    digits = len(str(config.num_outputs)) # Take FLAG?
+    for i in range(config.num_outputs):   
+        generated_sequence = generator.generate(primer_sequence, generator_options)
+
+        line_name = 'magenta_{0}_{1}'.format(date_and_time,
+                                             str(i + 1).zfill(digits)) 
+        session.add_sequence_proto_to_graph(generated_sequence, line_name)
+       
+        # Remove play - only for debugging.. 
+        session.play_line(line_name, 120)
+    tf.logging.info('Wrote %d lines to the graph.' % config.num_outputs)
+        
+
+def generate_melody_from_trained_model(session):
+    melody_rnn_config = melody_rnn_model.default_configs['basic_rnn']
+    
+    bundle_file = '/Users/ryanstauffer/Projects/Rheingold/magenta_data/mag/basic_rnn.mag'
+    bundle = magenta.music.read_bundle_file(bundle_file)   
+
+    generator = melody_rnn_sequence_generator.MelodyRnnSequenceGenerator(
+            model=melody_rnn_model.MelodyRnnModel(melody_rnn_config),
+            details=melody_rnn_config.details,
+            steps_per_quarter=melody_rnn_config.steps_per_quarter,
+            bundle=bundle)
+    
+    rheingold_magenta_config = RheingoldMagentaConfig(primer_line_name='bach_cello',
+                                                      primer_len=11, num_outputs=1, 
+                                                      qpm=120, num_steps=150)    
+    run_with_config(generator, session, rheingold_magenta_config)  
+    
+
+if __name__ == "__main__":
+    print('Test of Gremlin/Magenta interface.')
+    server_uri = 'ws://localhost:8182/gremlin'
+    
+    session = Session(server_uri)
+    
+    generate_melody_from_trained_model(session)
+ 
