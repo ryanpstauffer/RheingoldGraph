@@ -1,4 +1,4 @@
-"""Tests of Basic Music Graph Elements"""
+"""Tests of Basic RheingoldGraph Elements"""
 
 import pytest
 from rheingoldgraph.elements import Note, Line 
@@ -13,7 +13,7 @@ def line():
     return Line(name='bach_cello')
 
 # Tests
-class TestNote(object):
+class TestNote:
     def test_type(self, note):
         assert type(note) == Note
     
@@ -91,7 +91,7 @@ class TestNote(object):
 
 
 
-class TestLine(object):
+class TestLine:
     def test_type(self, line):
         assert type(line) == Line 
  

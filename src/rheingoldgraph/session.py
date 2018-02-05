@@ -18,7 +18,14 @@ from rheingoldgraph.midi import MIDIEngine
 DEFAULT_GREMLIN_URI = 'ws://localhost:8182/gremlin'
 DEFAULT_MIDI_PORT = 'IAC Driver MidoPython'
 
+# Exceptions
+class LineDoesNotExist(Exception):
+    pass
 
+class LineAlreadyExists(Exception):
+    pass
+
+# Classes 
 class Session:
     """A RheingoldGraph Session."""
     def __init__(self, server_uri=None):
@@ -30,7 +37,7 @@ class Session:
         self.g = self.graph.traversal().withRemote(DriverRemoteConnection(server_uri, 'g'))
 
  
-    def add_line_iterative(self, note_list, line_name):
+    def add_line(self, note_list, line_name):
         """Add a series of Notes to the graph.
          
         we iterate through the list of notes and add each note
@@ -79,6 +86,7 @@ class Session:
 
         print('Line {0} ({1} notes) added'.format(line_name, note_counter))
 
+
     @staticmethod
     def _add_note_to_traversal(traversal, note):
         """Add Note and all its property to a traversal."""
@@ -116,11 +124,7 @@ class Session:
                 return None
             prop_dict = self._build_prop_dict_from_result(result)
 
-            # TODO(Ryan): Use an alternate constructor
-            line = Line()
-            line.id = prop_dict['id']
-            line.name = prop_dict['name'] 
-            return line
+            return Line.from_dict(prop_dict)
         except StopIteration:
             return None
 
@@ -182,23 +186,17 @@ class Session:
         return prop_dict
 
 
-    def build_lines_from_xml_iterative(self, filename, piece_name=None):
+    def build_lines_from_xml(self, filename, piece_name=None):
         """Build a lines in graph from an xml file.
 
-        Currently supports:
-            - Single voice
-            - Ties
-            - Dots
+        Currently supports monophonic parts 
         
         Args:
             filename: XML filename
-            piece_name: Name to give the piece of music, used for constructing line names (in current prototype)
+            piece_name: Name to give the piece of music, 
+                        used for constructing line names
         """
-        #    start_time = timer()
-        # TODO(Ryan): A traversal should only be broken up into parts IFF it is longer than the minimum length
-        # Question of LENGTH of traversal vs Execution time
-        # Question of SIZE of graph and indexing time
-
+        # start_time = timer()
         # Fully separate out XML parsing into separate module
         doc = etree.parse(filename)
 
@@ -207,18 +205,19 @@ class Session:
         for part in part_list:
             part.notes = get_part_notes(part.id, doc)
 
-            # TODO(Ryan): Make this more robust
-            line_name = piece_name
-            
-            # Create a new line if it doesn't already exist
-            line = self.find_line(line_name)
-            if line:
-                # TODO(Ryan): Should return error
-                print("Line already exists")
-                return
+            # TODO(ryan): Make this more robust
+            if len(part_list) == 1: 
+                line_name = piece_name
             else:
-                # Should return a line object, but getting there...
-                line = self.g.addV('Line').property('name', line_name).next()
+                line_name = '{0}_{1}'.format(piece_name, part.id) 
+ 
+            # Check if line already exists
+            if self.find_line(line_name):
+                print("Line already exists")
+                raise LineAlreadyExists
+            
+            # TODO(ryan): Should return a line object, but getting there...
+            line = self.g.addV('Line').property('name', line_name).next()
 
             # Add notes to the line 
             note_counter = 0
@@ -227,7 +226,7 @@ class Session:
             for xml_note in part.notes:
                 note = Note(xml_note.name, xml_note.length, xml_note.dot)
 
-                # Slightly different traversals depending on if this is the first note of the line
+                # Different traversal depending if this is the first note of the line
                 if prev_note is None:
                     traversal = self.g.V(line.id).as_('l')
                     traversal = self._add_note_to_traversal(traversal, note)
