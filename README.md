@@ -85,3 +85,27 @@ Create a virtual environment for this project with all dependencies, then activa
 conda-env create --name rheingoldgraph -f environment.yml
 source activate rheingoldgraph
 ```
+
+## RheingoldGraph Basics
+
+See the Jupyter notebook [Tutorial](ADD LINK HERE) for a more detailed walktrhough.
+
+Start a graph session
+```python
+from rheingoldgraph.session import Session
+
+server_uri = 'ws://localhost:8182/gremlin
+session = Session(server_uri)
+```
+
+Get a summary of the graph
+```
+session.graph_summary()
+```
+
+And drop a line
+```
+session.drop_line('test_line')
+session.graph_summary()
+```
+

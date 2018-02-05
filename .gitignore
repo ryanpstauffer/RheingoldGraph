@@ -25,7 +25,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.pyc
-
+*.swp
 
 # Saved output files in saved_output directory
 saved_output/

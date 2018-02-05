@@ -4,12 +4,13 @@ import itertools
 import time
 from collections import namedtuple
 
+
 import mido
 from mido import Message, bpm2tempo, open_output, MidiFile, MidiTrack
 mido.set_backend('mido.backends.rtmidi')
+import pretty_midi
 
-MidiNote = namedtuple('MidiNote', ['value', 'time'], verbose=False)
-
+# Let's try to remove this functionality right now...it's confusing for now and not strictly necessary
 def build_midi_notes(num_octaves=9, naming='standard', middle_c_name='C4', middle_c_note_num=60):
     """Generate a dictionary of midi notes given parameters.
     """
@@ -51,47 +52,53 @@ def build_midi_notes(num_octaves=9, naming='standard', middle_c_name='C4', middl
     return midi_note
 
 
-class GraphMidiPlayer(object):
-    """Midi support to play notes from a music graph database."""
-    def __init__(self, notes, tempo):
-        """Args:
-            notes: notes to play
-            tempo: tempo in bpm
+class MIDIEngine(object):
+    """Midi Engine to play notes from Rheingold and Tensorflow."""
+    def __init__(self, midi_port, ticks_per_beat=480):
+        """Instance of RheingoldGraph MIDI Engine.
+
+        Args:
+            midi_port: Port on which to send MIDI data            
         """
-        self.midi_note = build_midi_notes()
-
-        # Hardcoded ticks per beat
-        self.ticks_per_beat = 480
-
-        self.microseconds_per_beat = bpm2tempo(tempo)
-        self.notes = notes
+        self.midi_port = midi_port
+        self.ticks_per_beat = ticks_per_beat 
 
 
-    def play(self, midi_port):
-        """Play the music over a MIDI port."""
-        with open_output(midi_port) as outport:
+    def play_protobuf(self, notes):
+        """Play protobuf Notes over a MIDI port.
+
+        Args:
+            notes: an iterable of Protocol Buffer Notes 
+
+        """
+        with open_output(self.midi_port) as outport:
 
             outport.send(Message('program_change', program=12))
-
+            
             try:
-                for n in self.notes:
-                    sleep_time = (self.microseconds_per_beat * n.duration / self.ticks_per_beat) / 1000000
-                    if n.name == 'R':
+                last_end_time = 0
+                for n in notes:
+                    # Calculate sleep time for rests
+                    sleep_time = n.start_time - last_end_time
+                    if sleep_time > 0:
                         print("Rest {0} sec".format(sleep_time))
                         time.sleep(sleep_time)
-                    else:
-                        note_value = self.midi_note[n.name]
-                        outport.send(Message('note_on', note=note_value, velocity=100))
-                        print("Note {0}, {1} sec".format(n.name, sleep_time))
-                        time.sleep(sleep_time)
-                        outport.send(Message('note_off', note=note_value, velocity=100))
+
+                    # Send note messages
+                    note_duration = n.end_time - n.start_time
+                    outport.send(Message('note_on', note=n.pitch, velocity=n.velocity))
+                    print("Note {0}, {1} sec".format(n.pitch, note_duration))
+                    time.sleep(note_duration)
+                    outport.send(Message('note_off', note=n.pitch, velocity=n.velocity))
+                    last_end_time = n.end_time
 
             except KeyboardInterrupt:
-                print()
+                print('Stopping MIDI output')
                 outport.reset()
                 outport.panic()
 
 
+    # I can get rid of this method shortly
     def save_to_file(self, filename):
         mid = MidiFile(ticks_per_beat=self.ticks_per_beat)
         track = MidiTrack()
