@@ -97,7 +97,7 @@ def run_with_config(generator, session, config):
     tf.logging.info('Wrote %d lines to the graph.' % config.num_outputs)
         
 
-def generate_melody_from_trained_model(session):
+def generate_melody_from_trained_model(session, primer_line_name):
     melody_rnn_config = melody_rnn_model.default_configs['basic_rnn']
     
     bundle_file = '/Users/ryanstauffer/Projects/Rheingold/magenta_data/mag/basic_rnn.mag'
@@ -109,7 +109,7 @@ def generate_melody_from_trained_model(session):
             steps_per_quarter=melody_rnn_config.steps_per_quarter,
             bundle=bundle)
     
-    rheingold_magenta_config = RheingoldMagentaConfig(primer_line_name='bach_cello',
+    rheingold_magenta_config = RheingoldMagentaConfig(primer_line_name=primer_line_name,
                                                       primer_len=11, num_outputs=1, 
                                                       qpm=120, num_steps=150)    
     run_with_config(generator, session, rheingold_magenta_config)  
@@ -121,5 +121,5 @@ if __name__ == "__main__":
     
     session = Session(server_uri)
     
-    generate_melody_from_trained_model(session)
+    generate_melody_from_trained_model(session, 'bach_cello')
  

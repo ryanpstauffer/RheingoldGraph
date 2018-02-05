@@ -1,17 +1,23 @@
 """Tests of Basic Music Graph Elements"""
 
 import pytest
-from rheingoldgraph.elements import Note
+from rheingoldgraph.elements import Note, Line 
 
+# Fixtures
 @pytest.fixture
 def note():
     return Note(name='D3', length=4, dot=0)
 
+@pytest.fixture
+def line():
+    return Line(name='bach_cello')
+
+# Tests
 class TestNote(object):
     def test_type(self, note):
         assert type(note) == Note
     
-    # Test properties
+    #### Properties
     # Test get properties
     def test_get_name(self, note):
         assert note.name == 'D3'
@@ -49,7 +55,7 @@ class TestNote(object):
             note.id = 5
 
     
-    # Test alternate constructor
+    #### Test alternate constructor
     def test_alt_constr_no_id(self):
         note_dict = {'name': 'D3', 'length': 4, 'dot': 0, 'label': 'Note'}
         new = Note.from_dict(note_dict)
@@ -69,7 +75,7 @@ class TestNote(object):
         assert new.id == 15 
 
 
-    # special methods
+    #### Special methods
     def test_reflexive(self, note):
         assert eval(repr(note)) == note
 
@@ -84,30 +90,63 @@ class TestNote(object):
         assert note == other
 
 
-# Old tests from Neo4j prototype
-# class NoteTestCase(unittest.TestCase):
-#     """Tests Note class functionality"""
-#     def setUp(self):
-#         pass
-# 
-# 
-#     def tearDown(self):
-#         pass
-# 
-# 
-#     def test_split_name(self):
-#         """Test that a Note object properly splits a name into pitch and octave."""
-#         test_name = 'C4'
-#         test_duration = 8
-# 
-#         expected_pitch_class = 'C'
-#         expected_octave = 4
-# 
-#         # Act
-#         test_note = Note(test_name, test_duration)
-# 
-#         self.assertEqual(expected_pitch_class, test_note.pitch_class, 
-#                          msg="Note name C4 should be split into pitch class C")
-#         self.assertEqual(expected_octave, test_note.octave, 
-#                          msg="Note name C4 should be split into octave 4")
+
+class TestLine(object):
+    def test_type(self, line):
+        assert type(line) == Line 
+ 
+    #### Properties
+    # Test get properties
+    def test_get_name(self, line):
+        assert line.name == 'bach_cello'
+
+    # Test set properties
+    def test_set_name(self, line):
+        line.name = 'wagner_piano'
+        assert line.name == 'wagner_piano'
+    
+    # Other property tests
+    def test_property_dict(self, line):
+        expected_dict = {'name': 'bach_cello'}
+        assert line.property_dict() == expected_dict
+
+    # Test id
+    def test_default_id_is_None(self, line):
+        assert line.id is None  
+
+    def test_cant_set_id(self, line):
+        with pytest.raises(AttributeError):
+            line.id = 5
+
+    
+    #### Test alternate constructor
+    def test_alt_constr_no_id(self):
+        line_dict = {'name': 'bach_cello', 'label': 'Line'}
+        new = Line.from_dict(line_dict)
+        assert new.name == 'bach_cello'
+        assert type(new) == Line
+        assert new.id is None
+
+    def test_alt_constr_w_id(self):
+        line_dict = {'name': 'bach_cello', 'label': 'Line', 'id': 21}
+        new = Line.from_dict(line_dict)
+        assert new.name == 'bach_cello'
+        assert type(new) == Line
+        assert new.id == 21 
+
+
+    #### Special methods
+    def test_reflexive(self, line):
+        assert eval(repr(line)) == line
+
+    def test_eq_no_id(self, line):
+        other = Line('bach_cello')
+        assert line == other
+
+    def test_eq_w_id(self, line):
+        """Equality shouldn't be impacted by id. Use 'is' to determine identity."""
+        other_dict = {'name': 'bach_cello', 'id': 15, 'label': 'Line'}
+        other = Line.from_dict(other_dict)
+        assert line == other
+
 

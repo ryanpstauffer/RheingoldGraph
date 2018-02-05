@@ -3,6 +3,7 @@ from gremlin_python.driver.driver_remote_connection import DriverRemoteConnectio
 from gremlin_python.structure.graph import Graph
 # Hopefully can eventually inherit from goblin?
 # import goblin
+
 import pretty_midi
 from magenta.protobuf import music_pb2
 
@@ -26,39 +27,8 @@ class PropertyDescriptor:
         del instance.__dict__[self.name] 
 
 
-class Line:
-    """A Line Vertex."""
-    label = 'Line'
-    name = PropertyDescriptor('name')
-    # name = goblin.Property(goblin.String)
-
-    def __repr__(self):
-        return "Line(name={0!r})".format(self.name)
-
-
-
-class Note:
-    """A Note Vertex.
-    """
-    label = 'Note' 
-
-    name = PropertyDescriptor('name')
-    length = PropertyDescriptor('length')
-    dot = PropertyDescriptor('dot')
-
-    _properties = ['name', 'length', 'dot']
-
-    # name = goblin.Property(goblin.String)
-    # length = goblin.Property(goblin.Float) 
-    # dot = goblin.Property(goblin.Integer, default=0)
-    
-
-    def __init__(self, name=None, length=None, dot=None):
-        self.name = name
-        self.length = length
-        self.dot = dot
-        self._id = None
-
+class Vertex:
+    """Generic RheingoldGraph OGM Vertex element."""
 
     @property
     def id(self):
@@ -66,13 +36,17 @@ class Note:
  
 
     def __repr__(self):
-        return "Note(name={0!r}, length={1!r}, dot={2!r})".format(self.name, self.length, self.dot)
+        property_list = ['{0}={1!r}'.format(key, getattr(self, key, None)) 
+                         for key in self._properties]
+        return '{0}({1})'.format(self.label, ', '.join(property_list))
 
-    
-    def __eq__(self, other):
-        # Equality does not depend on ID within the Database 
-        # Ex: Note('D3', 4.0, 0) == Note('D3', 4.0, 0) REGARDLESS of ID in the database
-        if isinstance(other, Note):
+
+    def __eq__(self, other): 
+        """Equality does not depend on ID within the Database 
+        Ex: Note('D3', 4.0, 0) == Note('D3', 4.0, 0) 
+        regardless of ID in the database
+        """
+        if isinstance(other, self.__class__):
             return self.property_dict() == other.property_dict() 
         else:
             return False
@@ -89,21 +63,56 @@ class Note:
 
     @classmethod
     def from_dict(cls, mapping):
+        """Alternate constructor for Vertex classes."""
         mapping = mapping.copy()
         label = mapping.pop('label')
         # TODO(Ryan): Type should be determined from label
-        note = Note()
-        note._id  = mapping.pop('id', None)
-        # There's a more elegant way to build new notes w/ error handling, but I'll add it later
-        for key, value in mapping.items():
-            setattr(note, key, value)
 
-        return note
+        vertex = cls.__new__(cls)
+        vertex._id  = mapping.pop('id', None)
+        for key, value in mapping.items():
+            setattr(vertex, key, value)
+
+        return vertex
+
+
+class Line(Vertex):
+    """A Line Vertex."""
+    label = 'Line'
+    name = PropertyDescriptor('name')
+
+    _properties = ['name']
+
+    def __init__(self, name=None):
+        self.name = name
+        self._id = None
+
+
+    def __repr__(self):
+        return "Line(name={0!r})".format(self.name)
+
+
+class Note(Vertex):
+    """A Note Vertex.
+    """
+    label = 'Note' 
+
+    name = PropertyDescriptor('name')
+    length = PropertyDescriptor('length')
+    dot = PropertyDescriptor('dot')
+
+    _properties = ['name', 'length', 'dot']
+
+    def __init__(self, name=None, length=None, dot=None):
+        self.name = name
+        self.length = length
+        self.dot = dot
+        self._id = None
 
 
     def to_protobuf(self):
-        """MVP of Protocol Buffer output."""
-        # TODO(ryanstauffer): Figure out if we need this!
+        """Protocol Buffer output."""
+        # TODO(ryanstauffer): Confirm that we need this!
         note = music_pb2.NoteSequence.Note() 
         note.pitch = pretty_midi.note_name_to_number(self.name) 
         note.denominator = self.length

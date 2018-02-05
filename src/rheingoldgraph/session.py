@@ -11,30 +11,41 @@ import numpy as np
 import magenta
 from magenta.protobuf import music_pb2
 
-
 from rheingoldgraph.musicxml import get_part_information_from_music_xml, get_part_notes
 from rheingoldgraph.elements import Line, Note
 from rheingoldgraph.midi import MIDIEngine
 
+DEFAULT_GREMLIN_URI = 'ws://localhost:8182/gremlin'
+DEFAULT_MIDI_PORT = 'IAC Driver MidoPython'
+
+
 class Session:
-    def __init__(self, server_uri):
+    """A RheingoldGraph Session."""
+    def __init__(self, server_uri=None):
+        """Instantiate a new RheingoldGraph Session."""
+        if server_uri is None:
+            server_uri = DEFAULT_GREMLIN_URI
+
         self.graph = Graph()
         self.g = self.graph.traversal().withRemote(DriverRemoteConnection(server_uri, 'g'))
 
  
     def add_line_iterative(self, note_list, line_name):
         """Add a series of Notes to the graph.
-        
-        Instead of adding the notes in one traversal, 
+         
         we iterate through the list of notes and add each note
         with a separate execution.
 
-        This works better for now, but takes twice the time as the one-shot traversal.
+        It is possible to add an iterable of Notes (such as a list)
+        in a a single traversal, IF the list isn't too long.
+        For now, we're using this simpler implementation,
+        where we iterate through a list of notes and add each note
+        with a separate traversal execution.
 
-        note_list: list of Notes (ordered)
-        line_name
+        note_list: list of Notes (ordered by time)
+        line_name: name to be applied to the musical line 
         """
-        # Create a new line if it doesn't already exist
+        # Create a new line iff it doesn't already exist
         line = self.find_line(line_name)
         if line:
             print("Line already exists")
@@ -49,7 +60,7 @@ class Session:
         for note in note_list:
             print(note)
             print(prev_note)
-            # Slightly different traversals depending on if this is the first note of the line
+            # Different traversal depending if this is the first note of the line
             if prev_note is None:
                 traversal = self.g.V(line.id).as_('l')
                 traversal = self._add_note_to_traversal(traversal, note)
@@ -78,48 +89,12 @@ class Session:
         return traversal 
 
 
-    def add_line(self, note_list, line_name):
-        """Add a series of Notes to the graph
-
-        g: GraphTraversalSource
-        note_list: list of Notes (ordered)
-        """
-        # Create a new line
-        traversal = self.g.addV('Line').property('name', line_name).as_('l')
-        
-        # Add notes to the line
-        note_counter = 0
-        new_notes = []
-        for note in note_list:
-            traversal = traversal.addV(note.label)
-            for prop, value in note.__dict__.items():
-                if prop != 'id':
-                    traversal = traversal.property(prop, value)
-
-            # Create alias for each new note so we can add edges
-            note_alias = 'n_{0}'.format(note_counter)
-            new_notes.append(note_alias)
-            traversal = traversal.as_(note_alias)
-            note_counter += 1
-        
-        # Add edges
-        traversal = traversal.addE('start').from_('l').to('n_0') \
-                             .addE('in_line').from_('l').to('n_0') 
-        for n0, n1 in zip(new_notes, new_notes[1:]):
-            traversal = traversal.addE('next').from_(n0).to(n1) \
-                                 .addE('in_line').from_('l').to(n1)
-
-        # Execute the traversal 
-        traversal.next()
-        print('Line {0} ({1} notes) added'.format('Test', len(new_notes)))
-
-
     def get_note_by_id(self, note_id):
         """Get a Note vertex from the graph.
         
         Args:
             note_id: graph ID of note.  
-                Note that this must correspond to the type of identifier used by the graph engine
+            Note that this must correspond to the type of identifier used by the graph engine
         """
         # This is still suboptimal 
         result = self.g.V(note_id).as_('v').properties().as_('p').select('v', 'p').toList() 
@@ -140,6 +115,7 @@ class Session:
             if result == []:
                 return None
             prop_dict = self._build_prop_dict_from_result(result)
+
             # TODO(Ryan): Use an alternate constructor
             line = Line()
             line.id = prop_dict['id']
@@ -339,7 +315,7 @@ class Session:
                            .as_('v').properties().as_('p').select('v', 'p').toList()    
 
  
-    def play_line(self, line_name, tempo):
+    def play_line(self, line_name, tempo, midi_port=DEFAULT_MIDI_PORT):
         """Play a line with MIDI instrument.
 
         This method streams protobuf Notes to a MIDI player
@@ -348,12 +324,11 @@ class Session:
             line_name: Name of the line to play
             tempo: tempo in bpm 
         """
-        notes = self.get_playable_line(line_name, tempo)
+        m = MIDIEngine(midi_port, ticks_per_beat=480)
 
-        midi_port = 'IAC Driver MidoPython'
+        notes = self.get_playable_line(line_name, tempo)
         # We pass a generator of protobuf Notes to the GraphMidiPlayer
         # TODO(MIDI Player doesn't currently support protobuf notes!
-        m = MIDIEngine(midi_port, ticks_per_beat=480)
         m.play_protobuf(notes)
 
 
