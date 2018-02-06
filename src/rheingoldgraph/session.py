@@ -1,18 +1,20 @@
-# Rheingold Graph session
+# RheingoldGraph session
+import sys
+from lxml import etree
+import numpy as np
+
 from gremlin_python.driver.driver_remote_connection import DriverRemoteConnection
 from gremlin_python.structure.graph import Graph
 from gremlin_python import statics
 statics.load_statics(globals())
 
 import pretty_midi
-from lxml import etree
-import numpy as np
 
 import magenta
 from magenta.protobuf import music_pb2
 
 from rheingoldgraph.musicxml import get_part_information_from_music_xml, get_part_notes
-from rheingoldgraph.elements import Line, Note
+from rheingoldgraph.elements import Vertex, Line, Note
 from rheingoldgraph.midi import MIDIEngine
 
 DEFAULT_GREMLIN_URI = 'ws://localhost:8182/gremlin'
@@ -24,6 +26,7 @@ class LineDoesNotExist(Exception):
 
 class LineAlreadyExists(Exception):
     pass
+
 
 # Classes 
 class Session:
@@ -128,6 +131,15 @@ class Session:
         except StopIteration:
             return None
 
+
+    def get_object_from_result(self, result):
+        prop_dict = self._build_prop_dict_from_result(result)
+        cls = getattr(sys.modules['rheingoldgraph.elements'], prop_dict['label'], Vertex)  
+        print(cls)
+        obj = cls.from_dict(prop_dict) 
+        print(obj) 
+
+        return obj
 
     def get_line_and_notes(self, line_name):
         """Get all notes in a musical line from the graph.
