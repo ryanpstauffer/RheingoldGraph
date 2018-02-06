@@ -32,6 +32,34 @@ def traversal_note_result():
                'v': vert}]
     return result
 
+@pytest.fixture
+def traversal_mult_note_result():
+    vert_0 = Vertex(id=7700, label='Note')
+    vert_1 = Vertex(id=7800, label='Note')
+
+    result = [{'p': VertexProperty(id=7701, label='name', value='D3', vertex=None),
+               'v': vert_0},
+              {'p': VertexProperty(id=7702, label='length', value=16, vertex=None),
+               'v': vert_0},
+              {'p': VertexProperty(id=7703, label='dot', value=0, vertex=None),
+               'v': vert_0},
+              {'p': VertexProperty(id=7710, label='name', value='F3', vertex=None),
+               'v': vert_1},
+              {'p': VertexProperty(id=7712, label='length', value=8, vertex=None),
+               'v': vert_1},
+              {'p': VertexProperty(id=7713, label='dot', value=1, vertex=None),
+               'v': vert_1}]
+
+    return result
+
+@pytest.fixture
+def line_props():
+    return {'id': 4602, 'label': 'Line', 'name': 'bach_cello'}
+
+@pytest.fixture
+def note_props():
+    return {'id': 7700, 'label': 'Note', 'name': 'D3', 'length': 16, 'dot': 0}
+
 
 # Tests
 class TestFindLine:
@@ -109,19 +137,51 @@ class TestElementsFromTraversal:
         assert prop_dict['dot'] == 0
         
     
-    def test_line_from_result(self, session, traversal_line_result):
-        line = session.get_object_from_result(traversal_line_result)
+    def test_line_from_props(self, session, line_props):
+        line = session.build_object_from_props(line_props)
         assert type(line) == Line
         assert line.name == 'bach_cello'
         assert line.id == 4602 
 
 
-    def test_note_from_result(self, session, traversal_note_result):
-        note = session.get_object_from_result(traversal_note_result)
+    def test_note_from_props(self, session, note_props):
+        note = session.build_object_from_props(note_props)
         assert type(note) == Note
         assert note.name == 'D3'
         assert note.length == 16
         assert note.dot == 0
         assert note.id == 7700
+
+
+    def test_build_vertex_list_from_result_1v_1p(self, session, traversal_line_result):
+        vertex_list = session._build_vertex_list_from_result(traversal_line_result)
+        assert len(vertex_list) == 1
+        assert vertex_list[0]['id'] == 4602
+        assert vertex_list[0]['label'] == 'Line'
+        assert vertex_list[0]['name'] == 'bach_cello'
+        
+
+    def test_build_vertex_list_from_result_1v_3p(self, session, traversal_note_result):
+        vertex_list = session._build_vertex_list_from_result(traversal_note_result)
+        assert len(vertex_list) == 1
+        assert vertex_list[0]['id'] == 7700
+        assert vertex_list[0]['label'] == 'Note'
+        assert vertex_list[0]['name'] == 'D3'
+        assert vertex_list[0]['length'] == 16
+        assert vertex_list[0]['dot'] == 0
+        
+
+    def test_build_vertex_list_from_result_2v_3p(self, session, traversal_mult_note_result):
+        vertex_list = session._build_vertex_list_from_result(traversal_mult_note_result)
+        assert len(vertex_list) == 2
+
+        # Since we don't know the order of note information,
+        # we search for our expected dicts in the vertex_list
+        vertex_0_dict = {'id': 7700, 'label': 'Note', 'name': 'D3', 'length': 16, 'dot': 0}
+        vertex_1_dict = {'id': 7800, 'label': 'Note', 'name': 'F3', 'length': 8, 'dot': 1}
+
+        assert vertex_0_dict in vertex_list
+        assert vertex_1_dict in vertex_list
+
 
 

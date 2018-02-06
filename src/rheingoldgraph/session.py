@@ -132,14 +132,27 @@ class Session:
             return None
 
 
-    def get_object_from_result(self, result):
-        prop_dict = self._build_prop_dict_from_result(result)
-        cls = getattr(sys.modules['rheingoldgraph.elements'], prop_dict['label'], Vertex)  
-        print(cls)
-        obj = cls.from_dict(prop_dict) 
-        print(obj) 
+    def build_object_from_props(self, props_dict):
+        """Build object from vertex properties.
+
+        Dynamically build an object with the properties and type retrieved from the graph.
+        Searches the rheingoldgraph.elements module for a class definition of the
+        element type specified by the graph 'label'.        
+        If found, returns an object of that type.
+        If not found, creates a generic Vertex object
+        # TODO(Ryan): If not found, dynamically create a new object of new class
+        # with type that matches the label foundin the props_dict
+
+        Args:
+            prop_dict: dictionary of vertex properties
+        Returns:
+            obj: new instance of the object described by the props_dict 
+        """
+        cls = getattr(sys.modules['rheingoldgraph.elements'], props_dict['label'], Vertex)  
+        obj = cls.from_dict(props_dict) 
 
         return obj
+
 
     def get_line_and_notes(self, line_name):
         """Get all notes in a musical line from the graph.
@@ -196,6 +209,37 @@ class Session:
         # print(prop_dict)
         
         return prop_dict
+    
+    @staticmethod
+    def _build_vertex_list_from_result(result):
+        """Create a list of vertices and properties from a traversal result.
+
+        Current implementation does not keep ordering in the result.
+        If order of result matters, use a generator traversal method instead.
+        
+        Args:
+            result: traversal result
+                list of dicts in form, {'v': gremlin.Vertex, 'p': gremlin.VertexProperty}
+        Returns:
+            vertex: list of dicts describing vertices from the graph
+                ex: [{'id': 15, 'label': 'Note', 'name': 'bach', other_props...}, {}]
+        """
+        # Create list of tuples from result
+        tuples = [(row['v'].id, row['p']) for row in result]
+        # Get unique vertices from result
+        verts = set(row['v'] for row in result)
+        # Create the vertex dict 
+        vertex_dict = {v.id: [] for v in verts}
+        for x in tuples:
+            vertex_dict[x[0]].append(x[1])
+        # Add properties and create final list
+        vertex_list = []
+        for v in verts:
+            part = {'id': v.id, 'label': v.label}
+            part.update({prop.key: prop.value for prop in vertex_dict[v.id]})
+            vertex_list.append(part)
+        
+        return vertex_list
 
 
     def build_lines_from_xml(self, filename, piece_name=None):
