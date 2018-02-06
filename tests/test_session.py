@@ -12,7 +12,7 @@ from rheingoldgraph.session import Session
 # Fixtures
 @pytest.fixture
 def session():
-    server_uri = 'ws://localhost:8182/gremlin'
+    server_uri = 'ws://localhost:8189/gremlin'
     return Session(server_uri)
 
 @pytest.fixture
@@ -59,6 +59,11 @@ def line_props():
 @pytest.fixture
 def note_props():
     return {'id': 7700, 'label': 'Note', 'name': 'D3', 'length': 16, 'dot': 0}
+
+
+@pytest.fixture
+def note_list():
+    return [Note('D3', 8, 0), Note('F3', 8, 0), Note('A3', 4, 0)]
 
 
 # Tests
@@ -138,14 +143,14 @@ class TestElementsFromTraversal:
         
     
     def test_line_from_props(self, session, line_props):
-        line = session.build_object_from_props(line_props)
+        line = session._build_object_from_props(line_props)
         assert type(line) == Line
         assert line.name == 'bach_cello'
         assert line.id == 4602 
 
 
     def test_note_from_props(self, session, note_props):
-        note = session.build_object_from_props(note_props)
+        note = session._build_object_from_props(note_props)
         assert type(note) == Note
         assert note.name == 'D3'
         assert note.length == 16
@@ -182,6 +187,23 @@ class TestElementsFromTraversal:
 
         assert vertex_0_dict in vertex_list
         assert vertex_1_dict in vertex_list
+
+# Functional tests
+class TestAddDropLine:
+    def test_add_then_drop_line(self, session, note_list):
+        # Line doesn't exist to begin with 
+        line_name = 'tester'
+        assert session.find_line(line_name) is None
+        
+        # Line is added and exists 
+        session.add_line(note_list, 'tester')
+        line = session.find_line(line_name)
+        assert type(line) is Line
+        assert line.name == 'tester'
+
+        # Drop line and it doesn't exist
+        session.drop_line(line_name)    
+        assert session.find_line(line_name) is None
 
 
 
