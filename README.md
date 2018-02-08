@@ -129,10 +129,9 @@ We can also interface RheingoldGraph directly with TensorFlow models, such as th
 bundle_file = '~/magenta_data/mag/basic_rnn.mag'
 session.generate_melody_from_trained_model(trained_model_name='melody_rnn_generator', 
                                            bundle_file=bundle_file,
-                                           sequence_generator,
-                                           primer_line_name='tester_bach',
+                                           primer_line_name='bach_cello',
                                            primer_len=11,
-                                           num_outputs=2,
+                                           num_outputs=1,
                                            qpm=80,
                                            num_steps=150)
 
