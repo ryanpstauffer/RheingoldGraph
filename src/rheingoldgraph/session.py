@@ -1,6 +1,7 @@
 """RheingoldGraph session."""
 import sys
-from lxml import etree
+import time
+
 import librosa
 import pretty_midi
 
@@ -14,6 +15,7 @@ from magenta.protobuf import music_pb2
 from rheingoldgraph.elements import Vertex, Note
 from rheingoldgraph.midi import MIDIEngine
 from rheingoldgraph.musicxml import get_parts_from_xml
+from rheingoldgraph.magenta_link import run_with_config, RheingoldMagentaConfig
 
 # Load gremlin_python statics
 statics.load_statics(globals())
@@ -53,7 +55,7 @@ class Session:
         """
 
         raw_line = self.g.addV('Line').property('name', line_name).next()
-        
+
         # Get full line object and properties
         line = self.get_vertex_by_id(raw_line.id)
 
@@ -167,8 +169,8 @@ class Session:
         except StopIteration:
             return None
 
-
-    def _build_object_from_props(self, props_dict):
+    @staticmethod
+    def _build_object_from_props(prop_dict):
         """Build object from vertex properties.
 
         Dynamically build an object with the properties and type retrieved from the graph.
@@ -185,8 +187,8 @@ class Session:
             obj: new instance of the object described by the props_dict
         """
         cls = getattr(sys.modules['rheingoldgraph.elements'],
-                      props_dict['label'], Vertex)
-        obj = cls.from_dict(props_dict)
+                      prop_dict['label'], Vertex)
+        obj = cls.from_dict(prop_dict)
 
         return obj
 
@@ -316,11 +318,7 @@ class Session:
             for note, tied_to_next in part.notes:
                 prev_note = self._add_note(line, note, prev_note, tie_flag)
 
-                if tied_to_next:
-                    tie_flag = True
-                else:
-                    tie_flag = False 
-
+                tie_flag = tied_to_next
                 note_counter += 1
 
             print('Line {0} ({1} notes) added'.format(line_name, note_counter))
@@ -347,7 +345,7 @@ class Session:
         added_note = self.get_vertex_by_id(raw_note.id)
 
         return added_note
-        
+
 
     def get_playable_line(self, line_name, bpm, *, excerpt_len=None):
         """Iterate through a notation line and return a playable representation.
@@ -361,7 +359,7 @@ class Session:
         line = self.find_line(line_name)
         if not line:
             print("Line {0} does not exist".format(line_name))
-            raise LineDoesNotExist 
+            raise LineDoesNotExist
 
         ticks_per_beat = 480
 
@@ -381,13 +379,9 @@ class Session:
                              (2 - (1 / 2**note.dot)) * \
                              4 * ticks_per_beat
 
-            print(note)
             try:
-                print(note.id) 
                 # Check if the note is tied
-                unk = self.g.V(note.id).out('tie').next()
-                print(unk) 
-                print('tie')
+                self.g.V(note.id).out('tie').next()
             except StopIteration:
                 # If the note is not tied, ...
                 note_length_in_sec = (60 / bpm) * (play_duration / ticks_per_beat)
@@ -410,7 +404,7 @@ class Session:
 
                 elif note.name == 'R':
                     last_end_time += note_length_in_sec
-                    print('REST')
+
                 play_duration = 0
 
             result = self.g.V(('id', note.id)).out('next') \
@@ -544,17 +538,16 @@ class Session:
                     if remainder == 0:
                         break
 
-            # Need additional algo to calc dots
-            # dot = np.log2(4 / (8 - (main_value * note_length_in_sec * bpm / 60)))
+            # TODO(ryan) Need additional algo to estimate dots
             dot = 0
             tie_flag = False
             while len(tied_notes) > 0:
                 t_note = tied_notes.pop(0)
                 note_length = int(1 / t_note)
                 graph_note = Note(name=pretty_midi.note_number_to_name(note.pitch),
-                                  length=note_length, dot=0)
+                                  length=note_length, dot=dot)
 
-                print(graph_note)
+                # print(graph_note)
 
                 prev_note = self._add_note(line, graph_note, prev_note, tie_flag)
 
@@ -563,12 +556,53 @@ class Session:
                 if len(tied_notes) > 0:
                     tie_flag = True
 
-            print('Line {0} ({1} notes) added'.format(line_name, note_counter))
+        print('Line {0} ({1} notes) added'.format(line_name, note_counter))
+
+
+    def generate_melody_from_trained_model(self, trained_model_name, bundle_file,
+                                           primer_line_name, primer_len=None,
+                                           num_outputs=1, qpm=80, num_steps=150,
+                                           play_on_add=False):
+
+        sequence_generator = configure_sequence_generator(trained_model_name, bundle_file) 
+        rheingold_magenta_config = RheingoldMagentaConfig(num_outputs=num_outputs,
+                                                          qpm=qpm, 
+                                                          num_steps=num_steps)    
+
+        primer_sequence = self.get_line_as_sequence_proto(primer_line_name,
+                                                          qpm,
+                                                          excerpt_len=primer_len)
+
+        new_sequences = run_with_config(sequence_generator, rheingold_magenta_config, primer_sequence)  
+
+        # Add the new sequences to the graph
+        date_and_time = time.strftime('%Y%m%d_%H%M%S')
+        digits = len(str(num_outputs)) # Take FLAG?
+        counter = 0
+        for sequence in new_sequences:
+            line_name = 'magenta_{0}_{1}'.format(date_and_time,
+                                             str(counter + 1).zfill(digits)) 
+            self.add_sequence_proto_to_graph(sequence, line_name)
+            counter += 1 
+
+            if play_on_add:
+                session.play_line(line_name, 120)
+
 
 
 if __name__ == '__main__':
     session = Session('ws://localhost:8189/gremlin')
-    session.add_lines_from_xml('scores/BachCelloSuiteDminPrelude.xml', 'tester_bach')
+    # session.add_lines_from_xml('scores/BachCelloSuiteDminPrelude.xml', 'tester_bach')
     session.graph_summary()
-    session.play_line('tester_bach', 120, 'IAC Driver MidoPython')
-    session.drop_line('tester_bach')
+    # session.play_line('tester_bach', 120, 'IAC Driver MidoPython')
+    # session.drop_line('tester_bach')
+
+    bundle_file = '/Users/ryanstauffer/Projects/Rheingold/magenta_data/mag/basic_rnn.mag'
+    # sequence_generator = configure_sequence_generator('melody_rnn_generator', bundle_file) 
+    session.generate_melody_from_trained_model('melody_rnn_generator', bundle_file,
+                                               sequence_generator, 
+                                               primer_line_name='tester_bach',
+                                               primer_len=11,
+                                               num_outputs=2,
+                                               qpm=80,
+                                               num_steps=150)
