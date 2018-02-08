@@ -1,16 +1,14 @@
 """RheingoldGraph MusicXML Parser - Prototype
 
-# TODO(Ryan): Write chord support
-# TODO(Ryan): Write backup support
+This module currently supports parsing of monophonic lines from Music XML files.
 """
-
 from collections import namedtuple
 from lxml import etree
 
-### Define namedtuples and global variables
+from rheingoldgraph.elements import Note
 
-# An XML note that is interpretable on a stand-alone basis
-XMLNote = namedtuple('XMLNote', ['name', 'length', 'dot', 'tied'])
+### Define namedtuples and global variables
+XMLNote = namedtuple('XMLNote', ['note', 'tied'])
 
 # Note: Breve support is currently weak.  This should not affect the playability of most scores
 XML_LENGTH = {'1024th': 1024,
@@ -27,7 +25,7 @@ XML_LENGTH = {'1024th': 1024,
               'breve': 1/2}
 
 ### Define classes
-class XMLPart(object):
+class XmlPart:
     """MusicXML Part representation."""
     def __init__(self, part_id, name):
         self.id = part_id
@@ -45,10 +43,10 @@ def get_part_information_from_music_xml(doc):
     Returns:
         part_list: list of XMLPart objects
     """
-    part_list = [XMLPart(p.get('id'), p.find('part-name').text) for p \
-                 in doc.find('part-list').findall('score-part')]
+    parts = [XmlPart(p.get('id'), p.find('part-name').text) for p \
+                     in doc.find('part-list').findall('score-part')]
 
-    return part_list
+    return parts
 
 
 def parse_xml(filename):
@@ -62,10 +60,8 @@ def parse_xml(filename):
         print(part.notes)
 
 
-def get_part_notes(part_id, doc):
+def get_part_note_generator(part_id, doc):
     """Get the notes for a specific part."""
-    # TODO(Ryan): remove all xml references fro this module
-
     part_data = doc.find("part[@id='{0}']".format(part_id))
 
     # Set the division of the quarter
@@ -100,8 +96,7 @@ def get_part_notes(part_id, doc):
             note_name = 'R'
 
         # Build length
-        # Length is now interpreted from the note type, not the XML duration 
-        # length = divisions * 4 / int(note.find('duration').text)
+        # Length is interpreted from the note type, not the XML duration 
         length = XML_LENGTH[note.find('type').text]
 
         # Get dots
@@ -113,19 +108,18 @@ def get_part_notes(part_id, doc):
         else:
             tied = False
 
-        note_list.append(XMLNote(note_name, length, dot, tied))
-
-    return note_list
+        yield XMLNote(Note(note_name, length, dot), tied)
 
 
+def get_parts_from_xml(filename):
+    """Get a list of XmlParts from an XML file.
 
-if __name__ == '__main__':
-    filename = '../../scores/BachCelloSuiteDminPrelude.xml'
+    Each part has an id, name and generator of XmlNotes, which include a Note object and tied flad
+    """     
     doc = etree.parse(filename)
+    parts = get_part_information_from_music_xml(doc)
 
-    part_list = get_part_information_from_music_xml(doc)
+    for part in parts:
+        part.notes = get_part_note_generator(part.id, doc) 
 
-    for part in part_list:
-        part.notes = get_part_notes(part.id, doc)
-
-        print(part.notes)
+    return parts 

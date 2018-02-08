@@ -10,7 +10,7 @@ setup(
     name='rheingoldgraph',
     version='0.0.1',
     license='Apache License 2.0',
-    description='A Music Graph',
+    description='Graph Model of Music Information',
     author='Ryan Stauffer',
     author_email='ryan.p.stauffer@gmail.com',
     packages=find_packages('src'),

@@ -1,7 +1,7 @@
 """RheingoldGraph session."""
 import sys
-from lxml import etree
-import librosa
+import time
+
 import pretty_midi
 
 from gremlin_python.driver.driver_remote_connection import DriverRemoteConnection
@@ -13,8 +13,8 @@ from magenta.protobuf import music_pb2
 
 from rheingoldgraph.elements import Vertex, Note
 from rheingoldgraph.midi import MIDIEngine
-from rheingoldgraph.musicxml import get_part_information_from_music_xml
-from rheingoldgraph.musicxml import get_part_notes
+from rheingoldgraph.musicxml import get_parts_from_xml
+from rheingoldgraph.magenta_link import run_with_config, RheingoldMagentaConfig
 
 # Load gremlin_python statics
 statics.load_statics(globals())
@@ -26,7 +26,7 @@ DEFAULT_MIDI_PORT = 'IAC Driver MidoPython'
 class LineDoesNotExist(Exception):
     pass
 
-class LineAlreadyExists(Exception):
+class LineExists(Exception):
     pass
 
 class RheingoldGraphIntegrityError(Exception):
@@ -44,54 +44,21 @@ class Session:
         self.g = self.graph.traversal().withRemote(DriverRemoteConnection(server_uri, 'g'))
 
 
-    def add_line(self, note_list, line_name):
-        """Add a series of Notes to the graph.
+    def _add_line(self, line_name):
+        """Add a line to the graph and return it.
 
-        We iterate through the list of notes and add each note
-        with a separate execution.
-
-        It is possible to add an iterable of Notes (such as a list)
-        in a a single traversal, IF the list isn't too long.
-        For now, we're using this simpler implementation,
-        where we iterate through a list of notes and add each note
-        with a separate traversal execution.
-
-        note_list: list of Notes (ordered by time)
-        line_name: name to be applied to the musical line
+        Args:
+            line_name: Name of the line to add
+        Returns:
+            line: new Line object added to the graph
         """
-        # Create a new line iff it doesn't already exist
-        line = self.find_line(line_name)
-        if line:
-            print("Line already exists")
-            return
-        else:
-            # TODO(ryan): This should return a line object
-            line = self.g.addV('Line').property('name', line_name).next()
 
-        # Add notes to the line
-        note_counter = 0
-        prev_note = None
-        for note in note_list:
-            # print(note)
-            # print(prev_note)
-            # Different traversal depending if this is the first note of the line
-            if prev_note is None:
-                traversal = self.g.V(line.id).as_('l')
-                traversal = self._add_note_to_traversal(traversal, note)
-                traversal = traversal.addE('start').from_('l').to('new')
-            else:
-                traversal = self.g.V(prev_note.id).as_('prev').out('in_line').as_('l')
-                traversal = self._add_note_to_traversal(traversal, note)
-                traversal = traversal.addE('next').from_('prev').to('new')
+        raw_line = self.g.addV('Line').property('name', line_name).next()
 
-            traversal = traversal.addE('in_line').from_('new').to('l')
+        # Get full line object and properties
+        line = self.get_vertex_by_id(raw_line.id)
 
-            # Get recently added note
-            # This should be a full Note object
-            prev_note = traversal.select('new').next()
-            note_counter += 1
-
-        print('Line {0} ({1} notes) added'.format(line_name, note_counter))
+        return line
 
 
     @staticmethod
@@ -130,21 +97,6 @@ class Session:
             return None
 
 
-    def parse_traversal_result(result):
-        """Parse traversal result and return objects with properties found in graph.
-
-        If a list of objects is returned, their ordering may not be the same as
-        in the graph.
-        For strongly ordered results, use a generator based traversal
-
-        Args:
-            result: raw traversal result
-        Returns:
-            single object from traversal, or list of objects
-        """
-        pass
-
-
     def find_line(self, line_name):
         """Returns a Line vertex if it exists, otherwise return None.
 
@@ -166,8 +118,8 @@ class Session:
         except StopIteration:
             return None
 
-
-    def _build_object_from_props(self, props_dict):
+    @staticmethod
+    def _build_object_from_props(prop_dict):
         """Build object from vertex properties.
 
         Dynamically build an object with the properties and type retrieved from the graph.
@@ -184,8 +136,8 @@ class Session:
             obj: new instance of the object described by the props_dict
         """
         cls = getattr(sys.modules['rheingoldgraph.elements'],
-                      props_dict['label'], Vertex)
-        obj = cls.from_dict(props_dict)
+                      prop_dict['label'], Vertex)
+        obj = cls.from_dict(prop_dict)
 
         return obj
 
@@ -221,7 +173,7 @@ class Session:
         line = self.find_line(line_name)
         if not line:
             print("Line {0} does not exist".format(line_name))
-            return
+            raise LineDoesNotExist
 
         self.g.V().hasLabel('Line').has('name', line_name).in_('in_line').drop().iterate()
         self.g.V().hasLabel('Line').has('name', line_name).drop().iterate()
@@ -230,9 +182,8 @@ class Session:
         if not self.find_line(line_name):
             print('Line {0} dropped from graph'.format(line_name))
         else:
-            # TODO(Ryan): Raise NotDropped Error?
             print('Line {0} not dropped.'.format(line_name))
-
+            raise LineExists
 
     @staticmethod
     def _build_prop_dict_from_result(result):
@@ -279,8 +230,8 @@ class Session:
         return vertex_list
 
 
-    def build_lines_from_xml(self, filename, piece_name=None):
-        """Build a lines in graph from an xml file.
+    def add_lines_from_xml(self, filename, piece_name=None):
+        """Add lines in graph from an xml file.
 
         Currently supports monophonic parts
 
@@ -289,77 +240,75 @@ class Session:
             piece_name: Name to give the piece of music,
                         used for constructing line names
         """
-        # start_time = timer()
-        # Fully separate out XML parsing into separate module
-        doc = etree.parse(filename)
+        parts = get_parts_from_xml(filename)
 
-        part_list = get_part_information_from_music_xml(doc)
-
-        for part in part_list:
-            part.notes = get_part_notes(part.id, doc)
-
+        for part in parts:
             # TODO(ryan): Make this more robust
-            if len(part_list) == 1:
+            if len(parts) == 1:
                 line_name = piece_name
             else:
                 line_name = '{0}_{1}'.format(piece_name, part.id)
 
+            print(line_name)
+
             # Check if line already exists
             if self.find_line(line_name):
                 print("Line already exists")
-                raise LineAlreadyExists
+                raise LineExists
 
-            # TODO(ryan): Should return a line object, but getting there...
-            line = self.g.addV('Line').property('name', line_name).next()
+            line = self._add_line(line_name)
+            # print(line)
 
             # Add notes to the line
             note_counter = 0
             prev_note = None
             tie_flag = False
-            for xml_note in part.notes:
-                note = Note(xml_note.name, xml_note.length, xml_note.dot)
+            # Can I generalize this more?
+            for note, tied_to_next in part.notes:
+                prev_note = self._add_note(line, note, prev_note, tie_flag)
 
-                # Different traversal depending if this is the first note of the line
-                if prev_note is None:
-                    traversal = self.g.V(line.id).as_('l')
-                    traversal = self._add_note_to_traversal(traversal, note)
-                    traversal = traversal.addE('start').from_('l').to('new')
-                else:
-                    traversal = self.g.V(prev_note.id).as_('prev').out('in_line').as_('l')
-                    traversal = self._add_note_to_traversal(traversal, note)
-                    traversal = traversal.addE('next').from_('prev').to('new')
-
-                    if tie_flag:
-                        traversal = traversal.addE('tie').from_('prev').to('new')
-                        tie_flag = False
-
-                traversal = traversal.addE('in_line').from_('new').to('l')
-
-                # Get recently added note
-                # This should be a full Note object
-                prev_note = traversal.select('new').next()
+                tie_flag = tied_to_next
                 note_counter += 1
-
-                if xml_note.tied:
-                    tie_flag = True
 
             print('Line {0} ({1} notes) added'.format(line_name, note_counter))
 
 
+    def _add_note(self, line, note, prev_note=None, tied_to_prev=False):
+        if prev_note is None:
+            traversal = self.g.V(line.id).as_('l')
+            traversal = self._add_note_to_traversal(traversal, note)
+            traversal = traversal.addE('start').from_('l').to('new')
+        else:
+            traversal = self.g.V(prev_note.id).as_('prev').out('in_line').as_('l')
+            traversal = self._add_note_to_traversal(traversal, note)
+            traversal = traversal.addE('next').from_('prev').to('new')
+
+            if tied_to_prev:
+                traversal = traversal.addE('tie').from_('prev').to('new')
+
+        traversal = traversal.addE('in_line').from_('new').to('l')
+
+        raw_note = traversal.select('new').next()
+
+        # Get full line object and properties
+        added_note = self.get_vertex_by_id(raw_note.id)
+
+        return added_note
+
+
     def get_playable_line(self, line_name, bpm, *, excerpt_len=None):
         """Iterate through a notation line and return a playable representation.
+
         Args:
             line_name: Name of the musical line
         returns:
             generator object of protobuf Notes
         """
-        # TODO(ryanpstauffer) This should yield protobuffers
         # Check if line exists
         line = self.find_line(line_name)
         if not line:
-            # TODO(Ryan): Should return error
             print("Line {0} does not exist".format(line_name))
-            return
+            raise LineDoesNotExist
 
         ticks_per_beat = 480
 
@@ -372,39 +321,42 @@ class Session:
         default_velocity = 100
         last_end_time = 0
         while result != [] and not excerpt_complete:
-            note_dict = self._build_prop_dict_from_result(result)
-            last_id = note_dict['id']
+            vertex_list = self._build_vertex_list_from_result(result)
+            note = self._build_object_from_props(vertex_list[0])
 
-            play_duration += 1/note_dict['length'] * \
-                             (2 - (1 / 2**note_dict['dot'])) * \
+            play_duration += 1/note.length * \
+                             (2 - (1 / 2**note.dot)) * \
                              4 * ticks_per_beat
 
             try:
-                self.g.V(last_id).out('tie').next()
-                # print('tie')
+                # Check if the note is tied
+                self.g.V(note.id).out('tie').next()
             except StopIteration:
+                # If the note is not tied, ...
                 note_length_in_sec = (60 / bpm) * (play_duration / ticks_per_beat)
-                if note_dict['name'] != 'R':
-                    note = music_pb2.NoteSequence.Note()
-                    note.pitch = pretty_midi.note_name_to_number(note_dict['name'])
-                    note.velocity = default_velocity
+                if note.name != 'R':
+                    pb_note = music_pb2.NoteSequence.Note()
+                    pb_note.pitch = pretty_midi.note_name_to_number(note.name)
+                    pb_note.velocity = default_velocity
 
                     # Calc start and end times
-                    note.start_time = last_end_time
-                    note.end_time = note.start_time + note_length_in_sec
-                    yield note
+                    pb_note.start_time = last_end_time
+                    pb_note.end_time = pb_note.start_time + note_length_in_sec
+                    yield pb_note
 
-                    last_end_time = note.end_time
+                    last_end_time = pb_note.end_time
+
+                    # Flag if the excerpt is complete to stop iteration
                     num_notes_returned += 1
                     if num_notes_returned == excerpt_len:
                         excerpt_complete = True
 
-                elif note_dict['name'] == 'R':
+                elif note.name == 'R':
                     last_end_time += note_length_in_sec
-                    print('REST')
+
                 play_duration = 0
 
-            result = self.g.V(('id', last_id)).out('next') \
+            result = self.g.V(('id', note.id)).out('next') \
                            .as_('v').properties().as_('p').select('v', 'p').toList()
 
 
@@ -459,23 +411,6 @@ class Session:
         return sequence
 
 
-    def visualize_line(self, line_name, tempo, *, excerpt_len=None):
-        """Visualize a line in a piano roll.
-
-        TODO: This method doesn't work!
-        """
-        sequence = self.get_line_as_sequence_proto(line_name, tempo,
-                                                   excerpt_len=excerpt_len)
-        pm = magenta.music.sequence_proto_to_pretty_midi(sequence)
-
-        fs = 100
-        librosa.display.specshow(pm.get_piano_roll(fs), hop_length=1,
-                                 sr=fs, x_axis='time',
-                                 y_axis='cqt_note')
-
-        return pm
-
-
     def graph_summary(self):
         """Print a summary of musical information in our graph.
         """
@@ -504,7 +439,7 @@ class Session:
         print("Adding protobuf sequence to RheingoldGraph line {0}".format(line_name))
         # Create a new line if it doesn't already exist
         if self.find_line(line_name):
-            raise LineAlreadyExists
+            raise LineExists
         else:
             # Should return a line object, but getting there...
             line = self.g.addV('Line').property('name', line_name).next()
@@ -535,40 +470,53 @@ class Session:
                     if remainder == 0:
                         break
 
-            # Need additional algo to calc dots
-            # dot = np.log2(4 / (8 - (main_value * note_length_in_sec * bpm / 60)))
+            # TODO(ryan) Need additional algo to estimate dots
             dot = 0
             tie_flag = False
             while len(tied_notes) > 0:
                 t_note = tied_notes.pop(0)
                 note_length = int(1 / t_note)
                 graph_note = Note(name=pretty_midi.note_number_to_name(note.pitch),
-                                  length=note_length, dot=0)
+                                  length=note_length, dot=dot)
 
-                print(graph_note)
+                # print(graph_note)
 
-                # Different traversal depending if this is the first note of the line
-                if prev_note is None:
-                    traversal = self.g.V(line.id).as_('l')
-                    traversal = self._add_note_to_traversal(traversal, graph_note)
-                    traversal = traversal.addE('start').from_('l').to('new')
-                else:
-                    traversal = self.g.V(prev_note.id).as_('prev').out('in_line').as_('l')
-                    traversal = self._add_note_to_traversal(traversal, graph_note)
-                    traversal = traversal.addE('next').from_('prev').to('new')
+                prev_note = self._add_note(line, graph_note, prev_note, tie_flag)
 
-                    if tie_flag:
-                        traversal = traversal.addE('tie').from_('prev').to('new')
-                        tie_flag = False
-
-                traversal = traversal.addE('in_line').from_('new').to('l')
-
-                # Get recently added note
-                # This should be a full Note object
-                prev_note = traversal.select('new').next()
                 note_counter += 1
 
                 if len(tied_notes) > 0:
                     tie_flag = True
 
-            print('Line {0} ({1} notes) added'.format(line_name, note_counter))
+        print('Line {0} ({1} notes) added'.format(line_name, note_counter))
+
+
+    def generate_melody_from_trained_model(self, trained_model_name, bundle_file,
+                                           primer_line_name, primer_len=None,
+                                           num_outputs=1, qpm=80, num_steps=150,
+                                           play_on_add=False):
+
+        sequence_generator = configure_sequence_generator(trained_model_name, bundle_file) 
+        rheingold_magenta_config = RheingoldMagentaConfig(num_outputs=num_outputs,
+                                                          qpm=qpm, 
+                                                          num_steps=num_steps)    
+
+        primer_sequence = self.get_line_as_sequence_proto(primer_line_name,
+                                                          qpm,
+                                                          excerpt_len=primer_len)
+
+        new_sequences = run_with_config(sequence_generator, rheingold_magenta_config, primer_sequence)  
+
+        # Add the new sequences to the graph
+        date_and_time = time.strftime('%Y%m%d_%H%M%S')
+        digits = len(str(num_outputs)) # Take FLAG?
+        counter = 0
+        for sequence in new_sequences:
+            line_name = 'magenta_{0}_{1}'.format(date_and_time,
+                                             str(counter + 1).zfill(digits)) 
+            self.add_sequence_proto_to_graph(sequence, line_name)
+            counter += 1 
+
+            if play_on_add:
+                session.play_line(line_name, 120)
+
