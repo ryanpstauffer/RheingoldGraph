@@ -2,7 +2,6 @@
 import sys
 import time
 
-import librosa
 import pretty_midi
 
 from gremlin_python.driver.driver_remote_connection import DriverRemoteConnection
@@ -60,56 +59,6 @@ class Session:
         line = self.get_vertex_by_id(raw_line.id)
 
         return line
-
-
-    # def add_line(self, note_list, line_name):
-    #     """Add a series of Notes to the graph.
-
-    #     We iterate through the list of notes and add each note
-    #     with a separate execution.
-
-    #     It is possible to add an iterable of Notes (such as a list)
-    #     in a a single traversal, IF the list isn't too long.
-    #     For now, we're using this simpler implementation,
-    #     where we iterate through a list of notes and add each note
-    #     with a separate traversal execution.
-
-    #     note_list: list of Notes (ordered by time)
-    #     line_name: name to be applied to the musical line
-    #     """
-    #     # Create a new line iff it doesn't already exist
-    #     line = self.find_line(line_name)
-    #     if line:
-    #         print("Line already exists")
-    #         return
-    #     else:
-    #         # TODO(ryan): This should return a line object
-    #         line = self.g.addV('Line').property('name', line_name).next()
-
-    #     # Add notes to the line
-    #     note_counter = 0
-    #     prev_note = None
-    #     for note in note_list:
-    #         # print(note)
-    #         # print(prev_note)
-    #         # Different traversal depending if this is the first note of the line
-    #         if prev_note is None:
-    #             traversal = self.g.V(line.id).as_('l')
-    #             traversal = self._add_note_to_traversal(traversal, note)
-    #             traversal = traversal.addE('start').from_('l').to('new')
-    #         else:
-    #             traversal = self.g.V(prev_note.id).as_('prev').out('in_line').as_('l')
-    #             traversal = self._add_note_to_traversal(traversal, note)
-    #             traversal = traversal.addE('next').from_('prev').to('new')
-
-    #         traversal = traversal.addE('in_line').from_('new').to('l')
-
-    #         # Get recently added note
-    #         # This should be a full Note object
-    #         prev_note = traversal.select('new').next()
-    #         note_counter += 1
-
-    #     print('Line {0} ({1} notes) added'.format(line_name, note_counter))
 
 
     @staticmethod
@@ -462,23 +411,6 @@ class Session:
         return sequence
 
 
-    def visualize_line(self, line_name, tempo, *, excerpt_len=None):
-        """Visualize a line in a piano roll.
-
-        TODO: This method doesn't work!
-        """
-        sequence = self.get_line_as_sequence_proto(line_name, tempo,
-                                                   excerpt_len=excerpt_len)
-        pm = magenta.music.sequence_proto_to_pretty_midi(sequence)
-
-        fs = 100
-        librosa.display.specshow(pm.get_piano_roll(fs), hop_length=1,
-                                 sr=fs, x_axis='time',
-                                 y_axis='cqt_note')
-
-        return pm
-
-
     def graph_summary(self):
         """Print a summary of musical information in our graph.
         """
@@ -588,21 +520,3 @@ class Session:
             if play_on_add:
                 session.play_line(line_name, 120)
 
-
-
-if __name__ == '__main__':
-    session = Session('ws://localhost:8189/gremlin')
-    # session.add_lines_from_xml('scores/BachCelloSuiteDminPrelude.xml', 'tester_bach')
-    session.graph_summary()
-    # session.play_line('tester_bach', 120, 'IAC Driver MidoPython')
-    # session.drop_line('tester_bach')
-
-    bundle_file = '/Users/ryanstauffer/Projects/Rheingold/magenta_data/mag/basic_rnn.mag'
-    # sequence_generator = configure_sequence_generator('melody_rnn_generator', bundle_file) 
-    session.generate_melody_from_trained_model('melody_rnn_generator', bundle_file,
-                                               sequence_generator, 
-                                               primer_line_name='tester_bach',
-                                               primer_len=11,
-                                               num_outputs=2,
-                                               qpm=80,
-                                               num_steps=150)

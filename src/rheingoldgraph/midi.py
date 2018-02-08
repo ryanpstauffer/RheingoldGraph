@@ -4,7 +4,6 @@ import itertools
 import time
 from collections import namedtuple
 
-
 import mido
 from mido import Message, bpm2tempo, open_output, MidiFile, MidiTrack
 mido.set_backend('mido.backends.rtmidi')
@@ -30,14 +29,12 @@ def build_midi_notes(num_octaves=9, naming='standard', middle_c_name='C4', middl
     for n in range(note_name_list.index(middle_c_name), len(note_name_list)):
         midi_note[note_name_list[n]] = note_num
         note_num += 1
-        # print(n)
 
     # Below middle C
     note_num = middle_c_note_num - 1
     for n in range(note_name_list.index(middle_c_name)-1, -1, -1):
         midi_note[note_name_list[n]] = note_num
         note_num -= 1
-        # print(n)
 
     # Add enharmonic conversions
     enharmonic_mapping = {'Db': 'C#',
