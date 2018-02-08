@@ -94,24 +94,51 @@ source activate rheingold_magenta
 
 ## RheingoldGraph Basics
 
-There will be a Jupyter notebook coming soon [Tutorial](ADD LINK HERE) for a more detailed walktrhough.
+There will be a Jupyter notebook coming soon with a more detailed walktrhough.
 
-Start a graph session
 ```python
-from rheingoldgraph.session import Session
-
-server_uri = 'ws://localhost:8182/gremlin
+# Connect to an existing Gremlin Server via Websocket
+server_uri = 'ws://localhost:8182/gremlin'
 session = Session(server_uri)
-```
 
-Get a summary of the graph
-```
+# Add an XML file to the graph
+session.add_lines_from_xml(filename='scores/BachCelloSuiteDminPrelude.xml', 
+                             piece_name='bach_cello')
+
+# View the line we just added
 session.graph_summary()
+
+# Total Vertices: 644
+# Total Edges: 1292
+# Number of Lines: 1
+# ----------------
+# bach_cello: 643
+
+# Play our line over an open MIDI port
+midi_port = 'IAC Driver MidoPython'
+session.play_line(line_name='bach_cello', qpm=80, midi_port=midi_port)
+
+# Remove our line from the graph
+session.drop_line(line_name='bach_cello')
 ```
 
-And drop a line
-```
-session.drop_line('test_line')
-session.graph_summary()
-```
+We can also interface RheingoldGraph directly with TensorFlow models, such as those developed by Google's Magenta project.
+```python
+# Use our line as a primer for generating new melodies
+# from a trained TensorFlow (Magenta) model
+bundle_file = '~/magenta_data/mag/basic_rnn.mag'
+session.generate_melody_from_trained_model(trained_model_name='melody_rnn_generator', 
+                                           bundle_file=bundle_file,
+                                           sequence_generator,
+                                           primer_line_name='tester_bach',
+                                           primer_len=11,
+                                           num_outputs=2,
+                                           qpm=80,
+                                           num_steps=150)
 
+# INFO:tensorflow:Wrote 1 line to the graph.
+# INFO:tensorflow:Wrote line bach_cello_magenta_20180204_2030
+ 
+# Play our newly added melody
+session.play_line('bach_cello_magenta_20180204_2030')
+```
