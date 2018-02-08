@@ -9,7 +9,7 @@ These instructions walkthrough how to setup RheingoldGraph in a Mac OSX environm
 There are 3 key parts of the setup:
 
 * Midi (for playback)
-* Gremlin Server and TinkerGraph (for a graph database framework)
+* Gremlin Server and TinkerGraph (for a graph computing framework)
 * Python and dependencies
 
 ## Midi
@@ -86,9 +86,15 @@ conda-env create --name rheingoldgraph -f environment.yml
 source activate rheingoldgraph
 ```
 
+If you want to use RheingoldGraph with TensorFlow and Magenta models, then use the environment_magenta.yml file
+```
+conda env create --name rheingold_magenta -f environment_magenta.yml 
+source activate rheingold_magenta
+```
+
 ## RheingoldGraph Basics
 
-See the Jupyter notebook [Tutorial](ADD LINK HERE) for a more detailed walktrhough.
+There will be a Jupyter notebook coming soon [Tutorial](ADD LINK HERE) for a more detailed walktrhough.
 
 Start a graph session
 ```python

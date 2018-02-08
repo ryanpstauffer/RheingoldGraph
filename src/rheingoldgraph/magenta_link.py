@@ -10,11 +10,12 @@ from magenta.models.melody_rnn import melody_rnn_sequence_generator
 
 # TODO(ryan): This module may eventually be altered to run off FLAGS,
 # Or a protobuf similar to generator options
-# But for simplicity right now just using namedtuple 
+# But for simplicity right now just using namedtuple
 RheingoldMagentaConfig = namedtuple('RheingoldMagentaConfig',
                                     ['num_outputs',
                                      'qpm',
                                      'num_steps'])
+
 
 def run_with_config(generator, config, primer_sequence=None):
     """Generates melodies and adds them to a RheingoldGraph instance.
@@ -34,7 +35,6 @@ def run_with_config(generator, config, primer_sequence=None):
 
     # Derive the total number of seconds to generate based on the QPM of the
     # priming sequence and the num_steps flag
-    # TODO(ryan): is this the best way to do this w/ Rheingold Graph?
     seconds_per_step = 60.0 / config.qpm / generator.steps_per_quarter
     total_seconds = config.num_steps * seconds_per_step
 
@@ -56,7 +56,6 @@ def run_with_config(generator, config, primer_sequence=None):
             generate_section.start_time, total_seconds)
         return
 
-    # TODO(ryan): Potentialy change these to take FLAGS?
     generator_options.args['temperature'].float_value = 1.0
     generator_options.args['beam_size'].int_value = 1
     generator_options.args['branch_factor'].int_value = 1
@@ -66,13 +65,12 @@ def run_with_config(generator, config, primer_sequence=None):
 
     # Make the generate request num_outputs times and return the output
     # to RheingoldGraph
-    for i in range(config.num_outputs):   
+    for i in range(config.num_outputs):
         generated_sequence = generator.generate(primer_sequence, generator_options)
         yield generated_sequence
 
     tf.logging.info('Generated %d sequences.' % config.num_outputs)
-        
-    
+
 
 def configure_sequence_generator(trained_model_name, bundle_file):
     """Configure and return a trained sequence generator.
@@ -89,30 +87,18 @@ def configure_sequence_generator(trained_model_name, bundle_file):
     bundle = magenta.music.read_bundle_file(bundle_file)
 
     # Model and generator selection
-    if trained_model_name == 'melody_rnn_generator': 
+    if trained_model_name == 'melody_rnn_generator':
         melody_rnn_config = melody_rnn_model.default_configs['basic_rnn']
-        model = melody_rnn_model.MelodyRnnModel(melody_rnn_config)  
+        model = melody_rnn_model.MelodyRnnModel(melody_rnn_config)
 
         sequence_generator = melody_rnn_sequence_generator.MelodyRnnSequenceGenerator(
-                                 model=model,
-                                 details=melody_rnn_config.details,
-                                 steps_per_quarter=melody_rnn_config.steps_per_quarter,
-                                 bundle=bundle)
+            model=model,
+            details=melody_rnn_config.details,
+            steps_per_quarter=melody_rnn_config.steps_per_quarter,
+            bundle=bundle)
 
     else:
         print("Model {0} not supported.".format(trained_model_name))
         return
 
     return sequence_generator
-
-
-
-if __name__ == "__main__":
-    pass
-    # print('Test of Gremlin/Magenta interface.')
-    # server_uri = 'ws://localhost:8182/gremlin'
-    # 
-    # session = Session(server_uri)
-    # 
-    # session.generate_melody_from_trained_model(session, 'bach_cello')
- 
