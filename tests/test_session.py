@@ -196,7 +196,7 @@ class TestAddDropLine:
         assert session.find_line(line_name) is None
         
         # Line is added and exists 
-        session.add_line(note_list, 'tester')
+        session._add_line('tester')
         line = session.find_line(line_name)
         assert type(line) is Line
         assert line.name == 'tester'
@@ -205,5 +205,13 @@ class TestAddDropLine:
         session.drop_line(line_name)    
         assert session.find_line(line_name) is None
 
+class TestAddNote:
+    def test_add_first_note(self, session):
+        # note = self._add_note(line, 
+        pass 
 
+    def test_add_second_note(self, session):
+        pass
 
+    def test_add_note_fails_if_line_doesnt_exist(self, session):
+        pass
