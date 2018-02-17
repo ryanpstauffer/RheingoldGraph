@@ -8,6 +8,7 @@ from magenta.pipelines import dag_pipeline
 from magenta.models.melody_rnn import melody_rnn_create_dataset
 from magenta.protobuf import music_pb2
 from magenta.music import melodies_lib
+from magenta.music import midi_io
 
 class TestExtractor(pipeline.Pipeline):
     def __init__(self):
@@ -20,30 +21,53 @@ class TestExtractor(pipeline.Pipeline):
         return str(int_object)
 
 class MelodyToProtoConverter(pipeline.Pipeline):
-    """Convert a list of melodies to a sequence proto.
-
-    Right now this takes the FIRST melody from the list, converts and returns it.
-    """
-    def __init__(self):
+    """Converts a melody to a sequence proto."""
+    def __init__(self, velocity=100, instrument=0, program=0,
+                 sequence_start_time=0.0, qpm=120.0):
         super(MelodyToProtoConverter, self).__init__(
             input_type=melodies_lib.Melody,
             output_type=music_pb2.NoteSequence,
             name='MelodyToProtoConverter')
+        self._velocity = velocity
+        self._instrument = instrument
+        self._program = program
+        self._sequence_start_time = sequence_start_time
+        self._qpm = qpm
+
 
     def transform(self, melody):
-        #try:
-        print(melody)
-        # melody = melodies[0]
-        # print(melody)
-        sequence = melody.to_sequence(velocity=100,
-                                      instrument=0,
-                                      program=0,
-                                      sequence_start_time=0.0,
-                                      qpm=120.0) 
-        #except:
-        #     tf.logging.warning('Skipped melody')
-        
-        return sequence
+        try:
+            sequence = melody.to_sequence(velocity=self._velocity,
+                                          instrument=self._instrument,
+                                          program=self._program,
+                                          sequence_start_time=self._sequence_start_time,
+                                          qpm=self._qpm) 
+        except:
+             tf.logging.warning('Skipped melody')
+        # TODO(ryan): add stats        
+        return [sequence]
+
+
+class MidiToProtoConverter(pipeline.Pipeline):
+    """Converts MIDI bytes to NoteSequence protobufs.
+
+    Utilizes code found in magenta.scripts.convert_dir_to_note_sequences.convert_midi()
+    """
+
+    def __init__(self, name=None):
+        super(MidiToProtoConverter, self).__init__(
+            input_type=bytes,
+            output_type=music_pb2.NoteSequence,
+            name=name)
+    
+    def transform(self, midi_bytes):
+        try:
+            sequence = [midi_io.midi_to_sequence_proto(midi_bytes)]
+        except midi_io.MIDIConversionError as e:
+            tf.logging.warning('Could not parse MIDI bytes. Error was: %s', e)
+            sequence = []
+       # TODO(ryan): add stats
+        return sequence  
 
 
 class TopMelodyExtractor(pipeline.Pipeline):
@@ -96,6 +120,7 @@ def get_midi_to_melody_proto_pipeline(config):
         dag_pipeline.DAGPipeline object.
     """
     # TimeChangeSplitter is useful for an MVP
+    midi_to_proto_converter = MidiToProtoConverter(name='MidiToProtoConverter')
     time_change_splitter = note_sequence_pipelines.TimeChangeSplitter(
         name='TimeChangeSplitter')
     quantizer = note_sequence_pipelines.Quantizer(
@@ -106,21 +131,16 @@ def get_midi_to_melody_proto_pipeline(config):
         min_bars=7, max_steps=512, min_unique_pitches=5,
         gap_bars=1.0, ignore_polyphonic_notes=True,
         name='MelodyExtractor')
-    melody_to_proto_converter = MelodyToProtoConverter()
-        # velocity=100, instrumnet=0, program=0, sequence_start_time=0.0,
-        # qpm=120.0)
-        
-    # encoder_pipeline = melody_rnn_create_dataset.EncoderPipeline(config, name='EncodePipeline')
+    melody_to_proto_converter = MelodyToProtoConverter(
+        velocity=100, instrument=0, program=0, sequence_start_time=0.0,
+        qpm=120.0)
 
-    dag = {time_change_splitter: dag_pipeline.DagInput(music_pb2.NoteSequence),
+    dag = {midi_to_proto_converter: dag_pipeline.DagInput(bytes),
+           time_change_splitter: midi_to_proto_converter,
            quantizer: time_change_splitter,
            melody_extractor: quantizer,
-           dag_pipeline.DagOutput('melodies'): melody_extractor}
-           # melody_to_proto_converter: melody_extractor,
-           # dag_pipeline.DagOutput('melody_sequence'): melody_to_proto_converter}
-           # Need to convert Melody back to NoteSequence
-           # Use the below for melody encoding! (model specific)
-           # encoder_pipeline: melody_extractor,
-           # dag_pipeline.DagOutput('melodies'): encoder_pipeline}
+           melody_to_proto_converter: melody_extractor,
+           dag_pipeline.DagOutput('melody_sequence'): melody_to_proto_converter}
+
     # Sometimes this returns an empty array
     return dag_pipeline.DAGPipeline(dag)

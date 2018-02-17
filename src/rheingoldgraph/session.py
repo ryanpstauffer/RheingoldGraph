@@ -15,7 +15,7 @@ from rheingoldgraph.elements import Vertex, Note
 from rheingoldgraph.midi import MIDIEngine
 from rheingoldgraph.musicxml import get_parts_from_xml
 from rheingoldgraph.magenta_link import run_with_config, RheingoldMagentaConfig
-from rheingoldgraph.data_processing import convert_midi_dir_to_sequences, get_melodies_from_sequences
+from rheingoldgraph.data_processing import convert_midi_dir_to_melody_sequences, get_melodies_from_sequences
 
 # Load gremlin_python statics
 statics.load_statics(globals())
@@ -530,10 +530,13 @@ class Session:
         Args:
             midi_dir: a directory containing MIDI files.
         """
-        seq_iter = convert_midi_dir_to_sequences(input_dir, '', False)
+        for name, melody_seq in convert_midi_dir_to_melody_sequences(midi_dir, recurse=False):
+            self.add_sequence_proto_to_graph(melody_seq, name)
         
-        melody_sequences = get_melodies_from_sequences(seq_iter)         
-        for melody_seq in melody_sequences:
-            self.add_sequence_proto_to_graph(melody_seq, 'new_melody')
+        # seq_iter = convert_midi_dir_to_sequences(input_dir, '', False)
+        
+        # melody_sequences = get_melodies_from_sequences(seq_iter)         
+        # for melody_seq in melody_sequences:
+        #     self.add_sequence_proto_to_graph(melody_seq, 'new_melody')
 
     
