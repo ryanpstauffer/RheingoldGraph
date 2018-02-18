@@ -1,4 +1,11 @@
-"""Rheingold implementation of Magenta Pipelines."""
+"""RheingoldGraph Pipelines.
+
+This file extends the existing Pipelines from the Magenta Project.
+The intent is to separate out and support the following:
+- Process source data to protocol buffer NoteSequences.
+- Process and encode sequences from the graph so they can be immediately
+  used by a TensorFlow model
+"""
 import tensorflow as tf
 
 from magenta.pipelines import pipeline
@@ -23,11 +30,11 @@ class TestExtractor(pipeline.Pipeline):
 class MelodyToProtoConverter(pipeline.Pipeline):
     """Converts a melody to a sequence proto."""
     def __init__(self, velocity=100, instrument=0, program=0,
-                 sequence_start_time=0.0, qpm=120.0):
+                 sequence_start_time=0.0, qpm=120.0, name=None):
         super(MelodyToProtoConverter, self).__init__(
             input_type=melodies_lib.Melody,
             output_type=music_pb2.NoteSequence,
-            name='MelodyToProtoConverter')
+            name=name)
         self._velocity = velocity
         self._instrument = instrument
         self._program = program
@@ -69,45 +76,35 @@ class MidiToProtoConverter(pipeline.Pipeline):
        # TODO(ryan): add stats
         return sequence  
 
+# I don't think I need this anymore...
+def get_sequence_to_seq_example_pipeline(config):
+    """Returns a DAGPipeline that creates a sequence example from a NoteSequence.
 
-class TopMelodyExtractor(pipeline.Pipeline):
-    """Extracts the top monophonic melody from a quantized NoteSequence.
+    Args:
+        config: A MelodyRnnConfig object.
 
-    This corresponds to the melody that is played in the highest register
-    of the right hand on a piano.
-
-    This is a modification of magenta.pipelines.melody_pipelines.MelodyExtractor
+    Returns:
+        dag_pipeline.DAGPipeline object.
     """
+    # Need to figure out how to handle partitions....
+    time_change_splitter = note_sequence_pipelines.TimeChangeSplitter(
+        name='TimeChangeSplitter')
+    quantizer = note_sequence_pipelines.Quantizer(
+        steps_per_quarter=config.steps_per_quarter, name='Quantizer')
+    # Same MelodyExtractor parameters as melody_rnn_create_dataset
+    melody_extractor = melody_pipelines.MelodyExtractor(
+        min_bars=7, max_steps=512, min_unique_pitches=5,
+        gap_bars=1.0, ignore_polyphonic_notes=True,
+        name='MelodyExtractor')
+    encoder_pipeline = melody_rnn_create_dataset.EncoderPipeline(config, name='EncoderPipeline')
 
-    def __init__(self, min_bars=7, max_steps=512, min_unique_pitches=5,
-                 gap_bars=1.0, ignore_polyphonic_notes=False, filter_drums=True,
-                 name=None):
-        super(TopMelodyExtractor, self).__init__(
-            input_type=music_pb2.NoteSequence,
-            output_type=melodies_lib.Melody,
-            name=name)
-        self._min_bars = min_bars
-        self._max_steps = max_steps
-        self._min_unique_pitches = min_unique_pitches
-        self._gap_bars = gap_bars
-        self._ignore_polyphonic_notes = ignore_polyphonic_notes
-        self._filter_drums = filter_drums
+    dag = {time_change_splitter: dag_pipeline.DagInput(music_pb2.NoteSequence),
+           quantizer: time_change_splitter,
+           melody_extractor: quantizer,
+           encoder_pipeline: melody_extractor,
+           dag_pipeline.DagOutput('sequence_example'): encoder_pipeline}
 
-    def transform(self, quantized_sequence):
-        melodies, stats = melodies_lib.extract_melodies(
-            quantized_sequence,
-            min_bars=self._min_bars,
-            max_steps_truncate=self._max_steps,
-            min_unique_pitches=self._min_unique_pitches,
-            gap_bars=self._gap_bars,
-            ignore_polyphonic_notes=self._ignore_polyphonic_notes,
-            filter_drums=self._filter_drums)
-
-        print(melodies)
-        print('there')
-        self._set_stats(stats)
-
-        return melodies 
+    return dag_pipeline.DAGPipeline(dag)
 
     
 def get_midi_to_melody_proto_pipeline(config):
@@ -127,13 +124,12 @@ def get_midi_to_melody_proto_pipeline(config):
         steps_per_quarter=config.steps_per_quarter, name='Quantizer')
     # Same MelodyExtractor parameters as melody_rnn_create_dataset
     melody_extractor = melody_pipelines.MelodyExtractor(
-    # melody_extractor = TopMelodyExtractor(
         min_bars=7, max_steps=512, min_unique_pitches=5,
         gap_bars=1.0, ignore_polyphonic_notes=True,
         name='MelodyExtractor')
     melody_to_proto_converter = MelodyToProtoConverter(
         velocity=100, instrument=0, program=0, sequence_start_time=0.0,
-        qpm=120.0)
+        qpm=120.0, name='MelodyToProtoConverter')
 
     dag = {midi_to_proto_converter: dag_pipeline.DagInput(bytes),
            time_change_splitter: midi_to_proto_converter,
@@ -142,5 +138,4 @@ def get_midi_to_melody_proto_pipeline(config):
            melody_to_proto_converter: melody_extractor,
            dag_pipeline.DagOutput('melody_sequence'): melody_to_proto_converter}
 
-    # Sometimes this returns an empty array
     return dag_pipeline.DAGPipeline(dag)

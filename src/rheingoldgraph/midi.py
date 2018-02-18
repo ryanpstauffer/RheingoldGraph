@@ -66,7 +66,6 @@ class MIDIEngine(object):
 
         Args:
             notes: an iterable of Protocol Buffer Notes 
-
         """
         with open_output(self.midi_port) as outport:
 

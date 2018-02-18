@@ -8,12 +8,13 @@ import os
 
 import tensorflow as tf
 
-from magenta.models.melody_rnn.melody_rnn_create_dataset import get_pipeline
+from magenta.models.melody_rnn import melody_rnn_create_dataset
 from magenta.models.melody_rnn import melody_rnn_model
 # from magenta.scripts.convert_dir_to_note_sequences import convert_midi
 from magenta.pipelines import pipeline
 from magenta.music import midi_io
 from magenta.pipelines import statistics
+from rheingoldgraph.pipelines import get_sequence_to_seq_example_pipeline
 from rheingoldgraph.pipelines import get_midi_to_melody_proto_pipeline
 
 
@@ -67,19 +68,10 @@ def convert_midi_dir_to_melody_sequences(root_dir, recurse=False):
     stats = []
 
     config = melody_rnn_model.default_configs['basic_rnn']
-
     pipeline_instance = get_midi_to_melody_proto_pipeline(config) 
-    # results = pipeline.load_pipeline(pipeline_instance, seq_iter)
-    
-    # parse melodies
-    # melodies = results['melodies']
-    # for melody in melodies:
-    #    yield melody.to_sequence()
-
 
     for midi_name, midi_bytes in midi_file_iterator(root_dir, recurse=recurse):
         outputs = pipeline_instance.transform(midi_bytes)
-
         melody_seq = outputs['melody_sequence'][0] 
         yield midi_name, melody_seq 
 
@@ -118,7 +110,7 @@ def midi_file_iterator(root_dir, recurse=True):
                     yield midi_name, f.read()
 
 
-
+# IS THIS DEPRECATED?
 def get_melodies_from_sequences(seq_iter):
     """Generator that yields melody sequence protos."""
     config = melody_rnn_model.default_configs['basic_rnn']
@@ -131,10 +123,35 @@ def get_melodies_from_sequences(seq_iter):
     for melody in melodies:
         yield melody.to_sequence()
 
+
+def encode_sequence_for_melody_rnn(seq_iter, eval_ratio):
+    """Encode a note sequence as a sequence example.
+
+    """    
+    config = melody_rnn_model.default_configs['basic_rnn']
+    pipeline_instance = melody_rnn_create_dataset.get_pipeline(config, eval_ratio)
     
+    results = pipeline.load_pipeline(pipeline_instance, seq_iter)
+    print(results) 
+    # Need to figure out how to get train and eval results out separately...  
+    # Just doing training results for now
+    return results['training_melodies']
+    # for seq_example in results['training_melodies']:
+    # yield  
+
+
+    # for seq in seq_iter:
+    #     outputs = pipeline_instance.transform(seq)
+        # print(outputs)
+    #     yield outputs
+        # seq_example = outputs['sequence_example'][0] 
+        # yield seq_example
+
 
 if __name__ == "__main__":
     input_dir = '/Users/ryanstauffer/Projects/Rheingold/midi/new_single_test'
+
+    # test = 
 
     # midi_file_iterator(input_dir)
     test = convert_midi_dir_to_sequences(input_dir, False)
