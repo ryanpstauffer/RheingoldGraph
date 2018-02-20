@@ -124,7 +124,7 @@ def get_melodies_from_sequences(seq_iter):
         yield melody.to_sequence()
 
 
-def encode_sequence_for_melody_rnn(seq_iter, eval_ratio):
+def encode_sequences_for_melody_rnn(seq_iter, eval_ratio):
     """Encode a note sequence as a sequence example.
 
     """    
@@ -132,10 +132,14 @@ def encode_sequence_for_melody_rnn(seq_iter, eval_ratio):
     pipeline_instance = melody_rnn_create_dataset.get_pipeline(config, eval_ratio)
     
     results = pipeline.load_pipeline(pipeline_instance, seq_iter)
-    print(results) 
+    return results
+
+    # print(results) 
     # Need to figure out how to get train and eval results out separately...  
     # Just doing training results for now
-    return results['training_melodies']
+    # return results['training_melodies']
+
+
     # for seq_example in results['training_melodies']:
     # yield  
 
@@ -147,6 +151,46 @@ def encode_sequence_for_melody_rnn(seq_iter, eval_ratio):
         # seq_example = outputs['sequence_example'][0] 
         # yield seq_example
 
+
+def get_padded_batch_from_seq_examples(seq_examples, batch_size, input_size,
+                                       num_enqueuing_threads=4, shuffle=False):
+    """Pads an iteratble of Sequence Examples.
+
+    Based magenta.common.sequence_example_lib.get_padded_batch().
+
+    Can deal with variable length SequenceExamples by padding each batch to the
+    length of the longest sequence with zeros.
+
+    Args:
+        seq_examples: list of SequenceExamples.
+        batch_size: The number of SequenceExamples to include in each batch.
+        input_size: The size of each input vector.  The returned batch of inputs
+            will have a shape [batch_size, num_steps, input_size].
+        num_enqueuing_threads: The number of threads to use for enqueuing
+            SequenceExamples.
+        shuffle: Whether to shuffle the batches.
+
+    Returns:
+        inputs: A tensor of shape [batch_size, num_steps, input_size] of float32s.
+        labels: A tensor of shape [batch_size, num_steps] of int64s.
+        lengths: A tensor of shape [batch_size] of int32s. The lengths of each
+            SequenceExample before padding.
+
+    Raises:
+        ValueError: If `shuffle` is True and `num_enqueuing_threads` is less than 2.
+    """
+    # sequence_features = {
+    #     'inputs': tf.FixedLenSequenceFeature(shape=[input_size],
+    #                                          dtype=tf.float32),
+    #     'labels': tf.FixedLenSequenceFeature(shape=[],
+    #                                          dtype=tf.int64)}
+    
+    length = tf.shape(sequence['inputs'])[0]
+    input_tensors = []
+    # TODO(ryan): finish this!
+
+
+  
 
 if __name__ == "__main__":
     input_dir = '/Users/ryanstauffer/Projects/Rheingold/midi/new_single_test'

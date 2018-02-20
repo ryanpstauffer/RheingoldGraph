@@ -10,10 +10,6 @@ from rheingoldgraph.session import Session
 # TODO(ryan): Launch and query a standalone test TinkerGraph instance
 
 # Fixtures
-@pytest.fixture
-def session():
-    server_uri = 'ws://localhost:8189/gremlin'
-    return Session(server_uri)
 
 @pytest.fixture
 def traversal_line_result():
@@ -215,3 +211,5 @@ class TestAddNote:
 
     def test_add_note_fails_if_line_doesnt_exist(self, session):
         pass
+
+
