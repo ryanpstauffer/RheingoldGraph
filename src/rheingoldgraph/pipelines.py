@@ -27,6 +27,7 @@ class TestExtractor(pipeline.Pipeline):
     def transform(self, int_object):
         return str(int_object)
 
+
 class MelodyToProtoConverter(pipeline.Pipeline):
     """Converts a melody to a sequence proto."""
     def __init__(self, velocity=100, instrument=0, program=0,
@@ -77,6 +78,7 @@ class MidiToProtoConverter(pipeline.Pipeline):
         return sequence  
 
 # I don't think I need this anymore...
+# I should be able to use the magenta.get_pipeline version?
 def get_sequence_to_seq_example_pipeline(config):
     """Returns a DAGPipeline that creates a sequence example from a NoteSequence.
 
@@ -108,7 +110,11 @@ def get_sequence_to_seq_example_pipeline(config):
 
     
 def get_midi_to_melody_proto_pipeline(config):
-    """Returns a DAGPipeline that creates a melody NoteSequence from a MIDI file.
+    """Returns a DAGPipeline that creates a monophonic NoteSequence from a MIDI file.
+
+    The returned pipeline accepts MIDI bytes as input and outputs a NoteSequence.
+    The output NoteSequence represents a single-line, monophonic melody.  Note that this
+    melody NoteSequence is NOT the same format as a Magenta melodies_lib.Melody.
 
     Args:
         config: A MelodyRnnConfig object.
@@ -139,3 +145,4 @@ def get_midi_to_melody_proto_pipeline(config):
            dag_pipeline.DagOutput('melody_sequence'): melody_to_proto_converter}
 
     return dag_pipeline.DAGPipeline(dag)
+

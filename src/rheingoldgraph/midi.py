@@ -49,7 +49,7 @@ def build_midi_notes(num_octaves=9, naming='standard', middle_c_name='C4', middl
     return midi_note
 
 
-class MIDIEngine(object):
+class MIDIEngine:
     """Midi Engine to play notes from Rheingold and Tensorflow."""
     def __init__(self, midi_port, ticks_per_beat=480):
         """Instance of RheingoldGraph MIDI Engine.

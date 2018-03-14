@@ -46,6 +46,7 @@ RheingoldGraph is being developed to run on TinkerPop>=3.3.0.  Most testing has 
 #### Setup
 _Automated setup script coming soon!_
 
+* Download and install Java SE Development Kit (Kit)
 * Unzip the file
 * Add an alias
 ```

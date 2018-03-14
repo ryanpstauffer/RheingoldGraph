@@ -7,6 +7,10 @@ from magenta.protobuf import generator_pb2
 from magenta.models.melody_rnn import melody_rnn_model
 from magenta.models.melody_rnn import melody_rnn_sequence_generator
 
+from rheingoldgraph.data_processing import convert_midi_dir_to_melody_sequences
+from rheingoldgraph.data_processing import _melody_name_and_note_sequence_to_note_sequence_only
+from rheingoldgraph.data_processing import encode_sequence_for_melody_rnn
+
 
 # TODO(ryan): This module may eventually be altered to run off FLAGS,
 # Or a protobuf similar to generator options
@@ -23,7 +27,7 @@ def run_with_config(generator, config, primer_sequence=None):
     TF & Magenta interaction based on Magenta melody_rnn_generate.py
 
     Args:
-        generator: The MelodyRnnSequencedGenerator to use for melody generation
+        generator: The MelodyRnnSequenceGenerator to use for melody generation
         config: RheingoldMagentaConfig
         primer_sequence: ProtoBuf NoteSequece
     """
@@ -102,3 +106,64 @@ def configure_sequence_generator(trained_model_name, bundle_file):
         return
 
     return sequence_generator
+
+
+if __name__ == '__main__':
+    input_dir = '/Users/ryan/Projects/Rheingold/midi/new_single_test'
+
+    # midi_file_iterator(input_dir)
+    gen = convert_midi_dir_to_melody_sequences(input_dir, False)
+    
+    # note_sequence_list = [n[1] for n in gen]
+    note_sequence_gen = _melody_name_and_note_sequence_to_note_sequence_only(gen)
+
+    # This produces a list of SequenceExamples
+    res = encode_sequence_for_melody_rnn(note_sequence_gen, 0.0) 
+
+    seq_example = res[0]
+ 
+    # Putting together code to link SequenceExample w/ Dataset
+    melody_rnn_config = melody_rnn_model.default_configs['basic_rnn']
+    encoder_decoder = melody_rnn_config.encoder_decoder
+    hparams = melody_rnn_config.hparams
+    print(hparams)
+ 
+    input_size = encoder_decoder.input_size
+    num_classes = encoder_decoder.num_classes
+    no_event_label = encoder_decoder.default_event_label
+
+    print(input_size, num_classes, no_event_label) 
+
+    # get_padded_batch() replacement BELOW
+    sequence_features = {
+        'inputs': tf.FixedLenSequenceFeature(shape=[input_size],
+                                             dtype=tf.float32),
+        'labels': tf.FixedLenSequenceFeature(shape=[],
+                                             dtype=tf.int64)}
+    
+    _, sequence = tf.parse_single_sequence_example(
+        seq_example.SerializeToString(), sequence_features=sequence_features)
+
+    length = tf.shape(sequence['inputs'])[0] 
+    input_tensors = [sequence['inputs'], sequence['labels'], length] 
+    
+    # Note that we obviously only have a single training example here!!!
+    # FOR NOW...
+    features = sequence['inputs']
+    labels = sequence['labels']
+
+    # Convert old QueueRunner technique to Dataset API usage
+    dataset = tf.data.Dataset.from_tensor_slices((features, labels))
+    iterator = dataset.make_one_shot_iterator()
+    next_element = iterator.get_next()
+
+    # Iterate through the dataset elements (as an ex)
+    with tf.Session() as sess:
+        for _ in range(1): 
+            print(sess.run(next_element))
+
+    # NEXT STEPS:
+    # create new get_padded_batch fn
+    # add shuffle, batch
+
+

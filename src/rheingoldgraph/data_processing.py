@@ -130,12 +130,13 @@ def encode_sequence_for_melody_rnn(seq_iter, eval_ratio):
     """    
     config = melody_rnn_model.default_configs['basic_rnn']
     pipeline_instance = melody_rnn_create_dataset.get_pipeline(config, eval_ratio)
-    
+    # From magenta.pipeline 
     results = pipeline.load_pipeline(pipeline_instance, seq_iter)
-    print(results) 
+    # print(results) 
     # Need to figure out how to get train and eval results out separately...  
     # Just doing training results for now
     return results['training_melodies']
+
     # for seq_example in results['training_melodies']:
     # yield  
 
@@ -147,14 +148,22 @@ def encode_sequence_for_melody_rnn(seq_iter, eval_ratio):
         # seq_example = outputs['sequence_example'][0] 
         # yield seq_example
 
+def _melody_name_and_note_sequence_to_note_sequence_only(name_and_notes):
+    """Convenience generator to use only a note sequence generator."""
+    for name, note_sequence in name_and_notes:
+        yield note_sequence
 
 if __name__ == "__main__":
-    input_dir = '/Users/ryanstauffer/Projects/Rheingold/midi/new_single_test'
-
-    # test = 
+    input_dir = '/Users/ryan/Projects/Rheingold/midi/new_single_test'
 
     # midi_file_iterator(input_dir)
-    test = convert_midi_dir_to_sequences(input_dir, False)
+    gen = convert_midi_dir_to_melody_sequences(input_dir, False)
+    
+    # note_sequence_list = [n[1] for n in gen]
+    note_sequence_gen = _melody_name_and_note_sequence_to_note_sequence_only(gen)
+
+    res = encode_sequence_for_melody_rnn(note_sequence_gen, 0.0) 
+    
     # seq_iter = convert_midi_dir_to_sequences(input_dir, '', False)
     # 
     # # main section to create dataset

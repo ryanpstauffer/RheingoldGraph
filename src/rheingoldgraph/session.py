@@ -431,7 +431,7 @@ class Session:
 
 
     def add_sequence_proto_to_graph(self, sequence, line_name):
-        """Add a Protocol Buffer Note Sequence to the graph.
+        """Add a Protocol Buffer NoteSequence to the graph.
 
         Args:
             sequence: protobuf NoteSequence
@@ -521,6 +521,7 @@ class Session:
             if play_on_add:
                 session.play_line(line_name, 120)
 
+
     def add_midi_dir_melodies_to_graph(self, midi_dir):
         """Add a directory of midi files to the graph.
 
@@ -539,4 +540,3 @@ class Session:
         # for melody_seq in melody_sequences:
         #     self.add_sequence_proto_to_graph(melody_seq, 'new_melody')
 
-    
