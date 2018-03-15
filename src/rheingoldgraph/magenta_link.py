@@ -108,13 +108,101 @@ def configure_sequence_generator(trained_model_name, bundle_file):
     return sequence_generator
 
 
-if __name__ == '__main__':
-    input_dir = '/Users/ryan/Projects/Rheingold/midi/new_single_test'
 
-    # midi_file_iterator(input_dir)
+def get_padded_batch_from_generator(batch_size, input_size,
+# def get_padded_batch_from_generator(gen, batch_size, input_size,
+                                   allow_smaller_final_batch=False,
+                                   shuffle=False):
+    """Reads SequenceExamples from a generator and pads them.
+    Can deal with variable length SequenceExamples by padding each
+    batch to the length of the longest sequence with zeros.
+
+    This is a reimplementation of magenta.common.get_padded_batch()
+    that uses the tf.data API and relies on a generator instead of
+    a file list.
+
+    Note: shuffle is currently unsupported here.
+    TODO(ryanstauffer): shuffle will need to be implemented on the
+        graph side
+
+    Args:
+        gen: A generator of SequenceExamples.
+        batch_size: The number of SequenceExamples to include in each batch.
+        input_size: The size of each input vector. The returned batch of inputs
+            will have a shape [batch_size, num_steps, input_size].
+        shuffle: Whether to shuffle the batches.
+    Returns:
+        inputs: A tensor of shape [batch_size, num_steps, input_size] of float32s.
+        labels: A tensor of shape [batch_size, num_steps] of int64s.
+        lengths: A tensor of shape [batch_size] of int32s. The lengths of each
+            SequenceExample before padding.
+    """ 
+    # Stand in for generator...
+    # input_dir = '/Users/ryan/Projects/Rheingold/midi/new_single_test'
+
+    # # midi_file_iterator(input_dir)
+    # gen = convert_midi_dir_to_melody_sequences(input_dir, False)
+    # 
+    # # note_sequence_list = [n[1] for n in gen]
+    # note_sequence_gen = _melody_name_and_note_sequence_to_note_sequence_only(gen)
+
+    # # This produces a list of SequenceExamples
+    # res = encode_sequence_for_melody_rnn(note_sequence_gen, 0.0) 
+
+    # seq_example = res[0]
+ 
+    # # Putting together code to link SequenceExample w/ Dataset
+    # melody_rnn_config = melody_rnn_model.default_configs['basic_rnn']
+    # encoder_decoder = melody_rnn_config.encoder_decoder
+    # hparams = melody_rnn_config.hparams
+    # print(hparams)
+
+    # # get_padded_batch() replacement BELOW
+    # sequence_features = {
+    #     'inputs': tf.FixedLenSequenceFeature(shape=[input_size],
+    #                                          dtype=tf.float32),
+    #     'labels': tf.FixedLenSequenceFeature(shape=[],
+    #                                          dtype=tf.int64)}
+    # 
+    # _, sequence = tf.parse_single_sequence_example(
+    #     seq_example.SerializeToString(), sequence_features=sequence_features)
+
+    # length = tf.shape(sequence['inputs'])[0] 
+    # input_tensors = [sequence['inputs'], sequence['labels'], length] 
+    #  
+    # # Note that we obviously only have a single training example here!!!
+    # # FOR NOW...
+    # # Try w/ 10 examples
+    # features = [sequence['inputs'] for _ in range(10)]
+    # labels = [sequence['labels'] for _ in range(10)]
+    # lengths = [tf.shape(sequence['inputs'])[0] for _ in range(10)] 
+
+    features, labels, lengths = dummy_input_tensor_generator()
+    # assert features == features_new
+    # assert labels == labels_new
+    # assert lengths == lengths_new
+    # End of generator stand-in
+
+    # Convert old QueueRunner technique to Dataset API usage
+    dataset = tf.data.Dataset.from_tensor_slices((features, labels, lengths))
+    dataset = dataset.padded_batch(batch_size, padded_shapes=([None, input_size],
+                                                              [None], []))     
+   
+    if not allow_smaller_final_batch:
+        print('here')
+        dataset = dataset.filter(
+            lambda features, labels, length: tf.equal(tf.shape(features)[0],
+                                                      batch_size)) 
+    # Iterator and return
+    iterator = dataset.make_one_shot_iterator()
+    inputs, labels, length = iterator.get_next()
+    return inputs, labels, length
+
+
+def dummy_input_tensor_generator():
+    """Stand in to test generator functionality for Dataset."""
+    input_dir = '/Users/ryan/Projects/Rheingold/midi/new_single_test'
     gen = convert_midi_dir_to_melody_sequences(input_dir, False)
-    
-    # note_sequence_list = [n[1] for n in gen]
     note_sequence_gen = _melody_name_and_note_sequence_to_note_sequence_only(gen)
 
     # This produces a list of SequenceExamples
@@ -129,10 +217,8 @@ if __name__ == '__main__':
     print(hparams)
  
     input_size = encoder_decoder.input_size
-    num_classes = encoder_decoder.num_classes
-    no_event_label = encoder_decoder.default_event_label
 
-    print(input_size, num_classes, no_event_label) 
+    print(input_size)
 
     # get_padded_batch() replacement BELOW
     sequence_features = {
@@ -146,24 +232,72 @@ if __name__ == '__main__':
 
     length = tf.shape(sequence['inputs'])[0] 
     input_tensors = [sequence['inputs'], sequence['labels'], length] 
-    
+     
     # Note that we obviously only have a single training example here!!!
     # FOR NOW...
-    features = sequence['inputs']
-    labels = sequence['labels']
+    # Try w/ 10 examples
+    features = [sequence['inputs'] for _ in range(10)]
+    labels = [sequence['labels'] for _ in range(10)]
+    lengths = [tf.shape(feat)[0] for feat in features] 
 
-    # Convert old QueueRunner technique to Dataset API usage
-    dataset = tf.data.Dataset.from_tensor_slices((features, labels))
-    iterator = dataset.make_one_shot_iterator()
-    next_element = iterator.get_next()
+    return features, labels, lengths 
 
+
+if __name__ == '__main__':
+    # input_dir = '/Users/ryan/Projects/Rheingold/midi/new_single_test'
+
+    # # midi_file_iterator(input_dir)
+    # gen = convert_midi_dir_to_melody_sequences(input_dir, False)
+   
+    # # note_sequence_list = [n[1] for n in gen]
+    # note_sequence_gen = _melody_name_and_note_sequence_to_note_sequence_only(gen)
+
+    # # This produces a list of SequenceExamples
+    # res = encode_sequence_for_melody_rnn(note_sequence_gen, 0.0) 
+
+    # seq_example = res[0]
+ 
+    # # Putting together code to link SequenceExample w/ Dataset
+    melody_rnn_config = melody_rnn_model.default_configs['basic_rnn']
+    encoder_decoder = melody_rnn_config.encoder_decoder
+    hparams = melody_rnn_config.hparams
+ 
+    # # get_padded_batch() replacement BELOW
+    # sequence_features = {
+    #     'inputs': tf.FixedLenSequenceFeature(shape=[input_size],
+    #                                          dtype=tf.float32),
+    #     'labels': tf.FixedLenSequenceFeature(shape=[],
+    #                                          dtype=tf.int64)}
+    # 
+    # _, sequence = tf.parse_single_sequence_example(
+    #     seq_example.SerializeToString(), sequence_features=sequence_features)
+
+    # length = tf.shape(sequence['inputs'])[0] 
+    # input_tensors = [sequence['inputs'], sequence['labels'], length] 
+     
+    # Note that we obviously only have a single training example here!!!
+    # FOR NOW...
+    # Try w/ 10 examples
+    # features = [sequence['inputs'] for _ in range(10)]
+    # labels = [sequence['labels'] for _ in range(10)]
+    # lengths = [tf.shape(sequence['inputs'])[0] for _ in range(10)] 
+
+    input_size = encoder_decoder.input_size
+    num_classes = encoder_decoder.num_classes
+    no_event_label = encoder_decoder.default_event_label
+    batch_size = 4
+    #batch_size = hparams.batch_size
+
+    inputs, labels, lengths = get_padded_batch_from_generator(
+        batch_size=batch_size, input_size=input_size, allow_smaller_final_batch=False,
+        shuffle=False)
+        # note_sequence_gen, batch_size=batch_size, input_size=input_size, shuffle=False)
+    
     # Iterate through the dataset elements (as an ex)
+    # Double check best way to iterate, but its coming together
     with tf.Session() as sess:
-        for _ in range(1): 
-            print(sess.run(next_element))
-
-    # NEXT STEPS:
-    # create new get_padded_batch fn
-    # add shuffle, batch
-
-
+        for n in range(2): 
+            print(n)
+            print(sess.run((inputs, labels, lengths)))
+            
+    
