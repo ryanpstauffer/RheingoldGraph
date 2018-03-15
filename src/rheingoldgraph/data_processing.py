@@ -75,7 +75,7 @@ def convert_midi_dir_to_melody_sequences(root_dir, recurse=False):
         melody_seq = outputs['melody_sequence'][0] 
         yield midi_name, melody_seq 
 
-
+# TODO(ryanstauffer): Can we rename this midi_file_generator?
 def midi_file_iterator(root_dir, recurse=True):
     """Generator that iterates over all MIDI files in the given directory.
 
