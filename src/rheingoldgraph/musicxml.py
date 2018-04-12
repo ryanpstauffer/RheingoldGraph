@@ -111,11 +111,27 @@ def get_part_note_generator(part_id, doc):
         yield XMLNote(Note(note_name, length, dot), tied)
 
 
+def get_parts_from_xml_string(xml_string):
+    """Get a list of XmlParts from an XML string.
+
+    Each part has an id, name and generator of XmlNotes, which include a Note object and tied flad
+    """
+    print(xml_string)
+    doc = etree.fromstring(xml_string)
+    print(doc)
+    parts = get_part_information_from_music_xml(doc)
+
+    for part in parts:
+        part.notes = get_part_note_generator(part.id, doc) 
+
+    return parts 
+
+
 def get_parts_from_xml(filename):
     """Get a list of XmlParts from an XML file.
 
     Each part has an id, name and generator of XmlNotes, which include a Note object and tied flad
-    """     
+    """
     doc = etree.parse(filename)
     parts = get_part_information_from_music_xml(doc)
 
@@ -123,3 +139,4 @@ def get_parts_from_xml(filename):
         part.notes = get_part_note_generator(part.id, doc) 
 
     return parts 
+

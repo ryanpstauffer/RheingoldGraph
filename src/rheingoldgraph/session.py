@@ -13,12 +13,12 @@ from gremlin_python import statics
 
 import grpc
 
-from rheingoldgraph.proto import music_pb2
-import rheingoldgraph.proto.rheingoldgraph_pb2 as rgpb
-import rheingoldgraph.proto.rheingoldgraph_pb2_grpc as rgrpc
+from rheingoldgraph.protobuf import music_pb2
+import rheingoldgraph.protobuf.rheingoldgraph_pb2 as rgpb
+import rheingoldgraph.protobuf.rheingoldgraph_pb2_grpc as rgrpc
 from rheingoldgraph.elements import Vertex, Note
 from rheingoldgraph.midi import MIDIEngine
-from rheingoldgraph.musicxml import get_parts_from_xml
+from rheingoldgraph.musicxml import get_parts_from_xml, get_parts_from_xml_string
 # from rheingoldgraph.magenta_link import run_with_config, configure_sequence_generator, RheingoldMagentaConfig
 # from rheingoldgraph.data_processing import encode_sequences_for_melody_rnn, convert_midi_dir_to_melody_sequences, get_melodies_from_sequences
 
@@ -187,9 +187,11 @@ class Session:
         # Confirm that Line has been deleted
         if not self.find_line(line_name):
             print('Line {0} dropped from graph'.format(line_name))
+            return rgpb.DropResponse(name=line_name, success=True)
         else:
             print('Line {0} not dropped.'.format(line_name))
-            raise LineExists
+            return rgpb.DropResponse(name=line_name, success=False)
+            # raise LineExists
 
 
     @staticmethod
@@ -237,17 +239,18 @@ class Session:
         return vertex_list
 
 
-    def add_lines_from_xml(self, filename, piece_name=None):
+    def add_lines_from_xml(self, xml_string, piece_name=None):
         """Add lines in graph from an xml file.
 
         Currently supports monophonic parts
 
         Args:
-            filename: XML filename
+            xml_string: string contents of an XML file
             piece_name: Name to give the piece of music,
                         used for constructing line names
         """
-        parts = get_parts_from_xml(filename)
+        parts = get_parts_from_xml_string(xml_string)
+        # parts = get_parts_from_xml(filename)
 
         for part in parts:
             # TODO(ryan): Make this more robust
@@ -278,6 +281,7 @@ class Session:
                 note_counter += 1
 
             print('Line {0} ({1} notes) added'.format(line_name, note_counter))
+            return rgpb.AddResponse(name=line_name, success=True, notes_added=note_counter)
 
 
     def _add_note(self, line, note, prev_note=None, tied_to_prev=False):
@@ -382,10 +386,10 @@ class Session:
         """
         m = MIDIEngine(midi_port, ticks_per_beat=480)
 
-        notes = self.get_playable_line(line_name, tempo)
+        notes = self.get_playable_line(line_name, bpm=tempo)
         m.play_protobuf(notes)
 
-
+    # TODO(ryan): Separate from Graph.
     def save_line_to_midi(self, line_name, tempo, filename, *, excerpt_len=None):
         """Save a music line to a .mid file.
 
@@ -398,7 +402,7 @@ class Session:
         sequence = self.get_line_as_sequence_proto(line_name, tempo, excerpt_len=excerpt_len)
         magenta.music.sequence_proto_to_midi_file(sequence, filename)
 
-
+    # TODO(ryan): Do we still need this?
     def get_line_as_sequence_proto(self, line_name, bpm, *, excerpt_len=None):
         """Return a line from the graph as a protobuf NoteSequence.
 
@@ -421,7 +425,7 @@ class Session:
 
         return sequence
 
-
+    # TODO(ryan): Change print to logging
     def graph_summary(self):
         """Print a summary of musical information in our graph.
         """
@@ -506,7 +510,7 @@ class Session:
 
         print('Line {0} ({1} notes) added'.format(line_name, note_counter))
 
-
+    # TODO(ryan): Separate out from RheingoldGraph, add to clientside
     def generate_melody_from_trained_model(self, trained_model_name, bundle_file,
                                            primer_line_name, primer_len=None,
                                            num_outputs=1, qpm=80, num_steps=150,
@@ -536,7 +540,7 @@ class Session:
             if play_on_add:
                 session.play_line(line_name, 120)
 
-
+    # Add to client
     def add_midi_dir_melodies_to_graph(self, midi_dir):
         """Add a directory of midi files to the graph.
 
@@ -550,6 +554,7 @@ class Session:
             self.add_sequence_proto_to_graph(melody_seq, name)
         
 
+    # TODO(ryan): Separate from graph server & session.
     def train_model_with_lines_from_graph(self, line_names, bpm=80):
         """Train a TensorFlow model with lines from the graph.
         """ 
@@ -563,5 +568,19 @@ class Session:
         eval_ratio = 0.0 
         results = encode_sequences_for_melody_rnn(sequences, eval_ratio)
         print(results)
+
+if __name__ == '__main__':
+    gremlin_server_uri = 'ws://localhost:8189/gremlin'
+    session = Session(gremlin_server_uri)
+   
+    filename = '/Users/ryan/Projects/Rheingold/RheingoldGraph/scores/BachCelloSuiteDminPrelude.xml' 
+    with open(filename, 'rb') as f:
+        xml_string = f.read() 
+    print(xml_string)
+    session.add_lines_from_xml(xml_string, 'bach_cello4')
+    
+    midi_port = 'IAC Driver MidoPython'
+    session.play_line(line_name='bach_cello4', tempo=80, midi_port=midi_port)
+
 
 

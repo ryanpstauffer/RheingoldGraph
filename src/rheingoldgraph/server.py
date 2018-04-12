@@ -2,24 +2,29 @@
 from concurrent import futures
 import time
 
-
-# import asyncio
-# import os
-# import signal
-# import websockets
-
 import grpc
+from absl import app
+from absl import flags
 
-import rheingoldgraph.proto.rheingoldgraph_pb2 as rgpb
-import rheingoldgraph.proto.rheingoldgraph_pb2_grpc as rgrpc
+import rheingoldgraph.protobuf.rheingoldgraph_pb2 as rgpb
+import rheingoldgraph.protobuf.rheingoldgraph_pb2_grpc as rgrpc
 from rheingoldgraph.session import Session
 
+flags.DEFINE_string(
+    'gremserv_uri', 'ws://localhost:8189/gremlin',
+    'URI of a running gremlin server instance.')
+flags.DEFINE_string(
+    'port', '50051',
+    'Port on which to receive RheingoldGraphServer connections.')
+
+FLAGS = flags.FLAGS
 
 class RheingoldGraphService(rgrpc.RheingoldGraphServicer):
 
-    def __init__(self):
-        gremlin_server_uri = 'ws://localhost:8189/gremlin'
-        self.session = Session(gremlin_server_uri)
+    def __init__(self, gremserv_uri):
+        self.gremserv_uri = gremserv_uri
+        self.session = Session(self.gremserv_uri)
+        print('Connected to Gremlin Server at {0}'.format(self.gremserv_uri))
 
 
     def GetSummary(self, request, context):
@@ -36,52 +41,32 @@ class RheingoldGraphService(rgrpc.RheingoldGraphServicer):
             yield note 
 
 
-def serve():
+    def DropLine(self, request, context):
+        drop_response = self.session.drop_line(line_name=request.name) 
+
+        return drop_response
+
+
+    def AddLinesFromXML(self, request, context):
+        add_response = self.session.add_lines_from_xml(request.xml, request.piece_name) 
+
+        return add_response
+
+
+def main(_):
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    rgrpc.add_RheingoldGraphServicer_to_server(RheingoldGraphService(), server)
-    server.add_insecure_port('[::]:50051')
+    rgrpc.add_RheingoldGraphServicer_to_server(
+        RheingoldGraphService(FLAGS.gremserv_uri), server)
+    server.add_insecure_port('[::]:{0}'.format(FLAGS.port))
     server.start()
+    print('Running RheingoldGraphServer on localhost:{0}'.format(FLAGS.port))
     try:
         while True:
             time.sleep(1200)
     except KeyboardInterrupt:
+        print('Shutting down RheingoldGraphServer')
         server.stop(0)
 
      
-
-# async def command_loop(ws, path):
-#     gremlin_server_uri = 'ws://localhost:8189/gremlin'
-#     session = Session(gremlin_server_uri)
-#     # Start with string messages, then move on to serialized protobuf...
-#     while True:
-#         try:
-#             msg = await ws.recv()
-#             print('< {0}'.format(msg))
-#             if msg == 'summary':
-#                 print('View Summary')
-#                 session.graph_summary()
-#         except websockets.ConnectionClosed:
-#             pass
-#         else:
-#             await ws.send(msg)
-#             print('> {0}'.format(msg))
-# 
-# 
-# async def rheingoldgraph_server(stop):
-#     async with websockets.serve(command_loop, 'localhost', 8765):
-#         await stop
-#         print('Shutting down server')
-
-
 if __name__ == '__main__':
-    serve()
-#     loop = asyncio.get_event_loop()
-# 
-#     print('RheingoldGraph command loop running, press Ctrl+C to interrupt.')
-#     print('pid {0}: send SIGTERM to exit.'.format(os.getpid())) 
-#     # Stop condition is set when receiving SIGTERM
-#     stop = asyncio.Future()
-#     loop.add_signal_handler(signal.SIGTERM, stop.set_result, None)
-# 
-#     # Run the server until the stop condition is met.
-#     loop.run_until_complete(rheingoldgraph_server(stop))
+    app.run(main)

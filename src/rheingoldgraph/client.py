@@ -7,32 +7,51 @@ from __future__ import print_function
 
 import grpc
 
-import rheingoldgraph.proto.rheingoldgraph_pb2 as rgpb
-import rheingoldgraph.proto.rheingoldgraph_pb2_grpc as rgrpc
+import rheingoldgraph.protobuf.rheingoldgraph_pb2 as rgpb
+import rheingoldgraph.protobuf.rheingoldgraph_pb2_grpc as rgrpc
 
-def run():
-    channel = grpc.insecure_channel('localhost:50051')
-    stub = rgrpc.RheingoldGraphStub(channel)
-    
-    summary_request = rgpb.SummaryRequest(line='bach_cello')
-    summary = stub.GetSummary(summary_request) 
-    print(summary)
 
-    line_request = rgpb.LineRequest(name='bach_cello')
-    notes = stub.GetPlayableLine(line_request)
-    print(type(notes))
-    for note in notes:
-        print(note)
-# async def get_summary(uri):
-#     async with websockets.connect(uri) as ws:
-#         msg = 'summary'
-#         await ws.send(msg)
-#         print('> {0}'.format(msg)) 
-# 
-#         summary = await ws.recv()
-#         print('<\n{0}'.format(summary))
+class RheingoldGraphClient:
+    """Remote client of RheingoldGraph."""
+    def __init__(self, server_uri):
+        channel = grpc.insecure_channel(server_uri) 
+        self.stub = rgrpc.RheingoldGraphStub(channel)
+
+
+    def get_summary(self):
+        """Get a summary of the complete graph."""
+        # TODO: Allow for subgraph summaries as well 
+        summary_request = rgpb.SummaryRequest(line='bach_cello')
+
+        return self.stub.GetSummary(summary_request) 
+
+
+    def add_lines_from_xml(self, filename, piece_name):
+        """Add lines from an XML file."""
+        with open(filename, 'rb') as f:
+            xml_string = f.read() 
+        xml_request = rgpb.XMLRequest(xml=xml_string, piece_name=piece_name)
+
+        return self.stub.AddLinesFromXML(xml_request)
+
+
+    def get_playable_line(self, line_name): 
+        """Get a generator of Notes""" 
+        # TODO(ryan): We still have nested generators
+        # Try to improve this efficiency
+        line_request = rgpb.LineRequest(name=line_name)
+        notes = self.stub.GetPlayableLine(line_request)
+        for note in notes:
+            yield note
+
+
+    def drop_line(self, line_name):
+        """Drop a line."""
+        drop_request = rgpb.LineRequest(name=line_name)
+        return self.stub.DropLine(drop_request)
+
 
 if __name__ == '__main__':
-    run() 
-#     asyncio.get_event_loop().run_until_complete(
-#         get_summary('ws://localhost:8765')) 
+    server_uri = 'localhost:50051'
+    client = RheingoldGraphClient(server_uri)
+

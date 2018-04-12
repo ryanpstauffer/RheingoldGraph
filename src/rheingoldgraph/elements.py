@@ -1,7 +1,7 @@
 """RheingoldGraph elements module."""
 
 import pretty_midi
-from rheingoldgraph.proto import music_pb2
+from rheingoldgraph.protobuf import music_pb2
 # from magenta.protobuf import music_pb2
 
 class PropertyDescriptor:

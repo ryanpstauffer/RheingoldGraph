@@ -17,6 +17,12 @@ service RheingoldGraph {
 
   // Get a sequence of ProtoBuf Notes for a playable line
   rpc GetPlayableLine (LineRequest) returns (stream tensorflow.magenta.Note) {}
+
+  // Remove a line and all associated musical content
+  rpc DropLine (LineRequest) returns (DropResponse) {}
+
+  // Add lines in the graph from an XML file
+  rpc AddLinesFromXML (XMLRequest) returns (AddResponse) {}
 }
 
 // -------------------------------------
@@ -30,6 +36,11 @@ message SummaryRequest {
 
 message LineRequest {
   string name = 1;
+}
+
+message XMLRequest {
+  bytes xml = 1;
+  string piece_name = 2;
 }
 
 // -------------------------------------
@@ -50,6 +61,21 @@ message LineSummary {
   string name = 1;
   int32 vertices = 2;
 }
+
+// Response for delete
+message DropResponse {
+  string name = 1;
+  bool success = 2;
+}
+
+// Response for add 
+message AddResponse {
+  string name = 1;
+  bool success = 2;
+  int32 notes_added = 3;
+}
+
+
 // 
 // // Copied from music.prot so I can get this to work...
 // // Next tag: 15
