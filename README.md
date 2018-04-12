@@ -93,6 +93,15 @@ conda env create --name rheingold_magenta -f environment_magenta.yml
 source activate rheingold_magenta
 ```
 
+## Make grpc python files
+From the project root
+```
+$ python -m grpc_tools.protoc -I=protobuf \
+    --python_out=src/rheingoldgraph/proto \
+    --grpc_python_out=src/rheingoldgraph/proto \
+    ../../protobuf/rheingoldgraph.proto
+```
+
 ## RheingoldGraph Basics
 
 There will be a Jupyter notebook coming soon [Tutorial](ADD LINK HERE) for a more detailed walktrhough.

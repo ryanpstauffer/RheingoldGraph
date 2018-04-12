@@ -1,0 +1,145 @@
+// RheingoldGraph gRPC and Protocol Buffer definitions.
+
+syntax = "proto3";
+
+// import magenta protobuf definitions (copied locally)
+import "music.proto";
+
+// option java_multiple_files = true;
+// option java_package = "ex.grpc";
+
+package rheingoldgraph;
+ 
+// RheingoldGraph service definition.
+service RheingoldGraph {
+  // Get a summary of musical information stored in our graph.
+  rpc GetSummary (SummaryRequest) returns (GraphSummary) {}
+
+  // Get a sequence of ProtoBuf Notes for a playable line
+  rpc GetPlayableLine (LineRequest) returns (stream tensorflow.magenta.Note) {}
+}
+
+// -------------------------------------
+// Requests
+// -------------------------------------
+
+// The Summary request message containing a line name (optional).
+message SummaryRequest {
+  string line = 1;
+}
+
+message LineRequest {
+  string name = 1;
+}
+
+// -------------------------------------
+// Responses
+// -------------------------------------
+
+// The Graph Summary reponse containing a summary of musical
+// information stored in the graph
+message GraphSummary {
+  int32 total_vertices = 1;
+  int32 total_edges = 2;
+  int32 num_lines = 3; 
+  repeated LineSummary lines = 4; 
+}
+
+// Summary information for a single line.
+message LineSummary {
+  string name = 1;
+  int32 vertices = 2;
+}
+// 
+// // Copied from music.prot so I can get this to work...
+// // Next tag: 15
+// message Note {
+//   // MIDI pitch; see en.wikipedia.org/wiki/MIDI_Tuning_Standard for details.
+//   int32 pitch = 1;
+//   // The notated pitch spelling in the score.
+//   PitchName pitch_name = 11;
+//   // Velocity ranging between 0 and 127.
+//   int32 velocity = 2;
+//   // Start time in seconds.
+//   double start_time = 3;
+//   // Quantized start time in steps.
+//   int64 quantized_start_step = 13;
+//   // End time in seconds.
+//   double end_time = 4;
+//   // Quantized end time in steps.
+//   int64 quantized_end_step = 14;
+//   // Score-relative note length. E.g. a quarter note is 1/4.
+//   int32 numerator = 5;
+//   int32 denominator = 6;
+//   // For MIDI source data, an instrument stores all events in a track having
+//   // the same program and channel, as done by pretty-midi.
+//   int32 instrument = 7;
+//   // A program selects an instrument's sound.
+//   // Note that the General MIDI documentation is 1-based, but this field is
+//   // 0-based. So GM documents program 12 as vibraphone, but this field would
+//   // be set to 11 for that instrument.
+//   // See www.midi.org/specifications/item/gm-level-1-sound-set.
+//   int32 program = 8;
+//   // When true, the event is on an instrument that is a drum (MIDI channel 9).
+//   bool is_drum = 9;
+//   // The part index if this came from a score. Otherwise, just 0.
+//   // For example, a score may have separate parts for different instruments in
+//   // an orchestra.
+//   // If additional information is available about the part, a corresponding
+//   // PartInfo should be defined with the same index.
+//   int32 part = 10;
+//   // The voice index if this came from a score. Otherwise, just 0.
+//   // For example, within a part, there may be multiple voices (e.g., Soprano,
+//   // Alto, Tenor, Bass).
+//   // Note that while voices indexes must be unique within a part, they are not
+//   // guaranteed to be unique across parts.
+//   int32 voice = 12;
+// }
+// 
+// 
+// // Adopted from Musescore with start enum shifted to 0; see
+// // https://musescore.org/en/plugin-development/tonal-pitch-class-enum
+// // for details.
+// enum PitchName {
+//   UNKNOWN_PITCH_NAME = 0;
+//   F_FLAT_FLAT = 1;
+//   C_FLAT_FLAT = 2;
+//   G_FLAT_FLAT = 3;
+//   D_FLAT_FLAT = 4;
+//   A_FLAT_FLAT = 5;
+//   E_FLAT_FLAT = 6;
+//   B_FLAT_FLAT = 7;
+//   F_FLAT = 8;
+//   C_FLAT = 9;
+//   G_FLAT = 10;
+//   D_FLAT = 11;
+//   A_FLAT = 12;
+//   E_FLAT = 13;
+//   B_FLAT = 14;
+//   F = 15;
+//   C = 16;
+//   G = 17;
+//   D = 18;
+//   A = 19;
+//   E = 20;
+//   B = 21;
+//   F_SHARP = 22;
+//   C_SHARP = 23;
+//   G_SHARP = 24;
+//   D_SHARP = 25;
+//   A_SHARP = 26;
+//   E_SHARP = 27;
+//   B_SHARP = 28;
+//   F_SHARP_SHARP = 29;
+//   C_SHARP_SHARP = 30;
+//   G_SHARP_SHARP = 31;
+//   D_SHARP_SHARP = 32;
+//   A_SHARP_SHARP = 33;
+//   E_SHARP_SHARP = 34;
+//   B_SHARP_SHARP = 35;
+// }
+// 
+// 
+// 
+// 
+// 

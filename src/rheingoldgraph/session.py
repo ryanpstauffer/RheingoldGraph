@@ -8,14 +8,19 @@ from gremlin_python.driver.driver_remote_connection import DriverRemoteConnectio
 from gremlin_python.structure.graph import Graph
 from gremlin_python import statics
 
-import magenta
-from magenta.protobuf import music_pb2
+# import magenta
+# from magenta.protobuf import music_pb2
 
+import grpc
+
+from rheingoldgraph.proto import music_pb2
+import rheingoldgraph.proto.rheingoldgraph_pb2 as rgpb
+import rheingoldgraph.proto.rheingoldgraph_pb2_grpc as rgrpc
 from rheingoldgraph.elements import Vertex, Note
 from rheingoldgraph.midi import MIDIEngine
 from rheingoldgraph.musicxml import get_parts_from_xml
-from rheingoldgraph.magenta_link import run_with_config, RheingoldMagentaConfig
-from rheingoldgraph.data_processing import convert_midi_dir_to_melody_sequences, get_melodies_from_sequences
+# from rheingoldgraph.magenta_link import run_with_config, RheingoldMagentaConfig
+# from rheingoldgraph.data_processing import convert_midi_dir_to_melody_sequences, get_melodies_from_sequences
 
 # Load gremlin_python statics
 statics.load_statics(globals())
@@ -186,6 +191,7 @@ class Session:
             print('Line {0} not dropped.'.format(line_name))
             raise LineExists
 
+
     @staticmethod
     def _build_prop_dict_from_result(result):
         # Build our note dict of properties
@@ -297,7 +303,7 @@ class Session:
         return added_note
 
 
-    def get_playable_line(self, line_name, bpm, *, excerpt_len=None):
+    def get_playable_line(self, line_name, *, bpm=80, excerpt_len=None):
         """Iterate through a notation line and return a playable representation.
 
         Args:
@@ -305,6 +311,10 @@ class Session:
         returns:
             generator object of protobuf Notes
         """
+        # TODO(ryan): remove bpm from this method
+        # tempo/performance info should be separate from the pure musical
+        # info contained in the graph
+
         # Check if line exists
         line = self.find_line(line_name)
         if not line:
@@ -336,7 +346,7 @@ class Session:
                 # If the note is not tied, ...
                 note_length_in_sec = (60 / bpm) * (play_duration / ticks_per_beat)
                 if note.name != 'R':
-                    pb_note = music_pb2.NoteSequence.Note()
+                    pb_note = music_pb2.Note()
                     pb_note.pitch = pretty_midi.note_name_to_number(note.name)
                     pb_note.velocity = default_velocity
 
@@ -426,9 +436,14 @@ class Session:
         print("Total Vertices: {0}".format(total_vertices))
         print("Total Edges: {0}".format(total_edges))
         print("Number of Lines: {0}\n----------------".format(num_lines))
+        summary = rgpb.GraphSummary(
+            total_vertices=total_vertices, total_edges=total_edges, num_lines=num_lines)
         for key, val in line_summary.items():
             print("{0}: {1}".format(key, val))
-
+            summary.lines.add(name=key, vertices=val)
+        
+        return summary
+ 
 
     def add_sequence_proto_to_graph(self, sequence, line_name):
         """Add a Protocol Buffer NoteSequence to the graph.
