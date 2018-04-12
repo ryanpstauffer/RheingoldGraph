@@ -8,6 +8,8 @@ from magenta.music import Melody
 from magenta.pipelines import pipeline as magenta_pipeline
 from magenta.protobuf import music_pb2
 
+from rheingoldgraph.session import Session
+
 # Define common test filenames fixtures
 @pytest.fixture
 def midi_single_note_filename(scope='module'):
@@ -30,6 +32,12 @@ def magenta_melody_rnn_one_hot_filename(scope='module'):
 
 
 # Define common fixture objects
+
+@pytest.fixture
+def session(scope='module'):
+    server_uri = 'ws://localhost:8189/gremlin'
+    return Session(server_uri)
+
 
 @pytest.fixture
 def magenta_melody_rnn_sequence(magenta_melody_rnn_sequence_filename,

@@ -19,8 +19,8 @@ import rheingoldgraph.proto.rheingoldgraph_pb2_grpc as rgrpc
 from rheingoldgraph.elements import Vertex, Note
 from rheingoldgraph.midi import MIDIEngine
 from rheingoldgraph.musicxml import get_parts_from_xml
-# from rheingoldgraph.magenta_link import run_with_config, RheingoldMagentaConfig
-# from rheingoldgraph.data_processing import convert_midi_dir_to_melody_sequences, get_melodies_from_sequences
+# from rheingoldgraph.magenta_link import run_with_config, configure_sequence_generator, RheingoldMagentaConfig
+# from rheingoldgraph.data_processing import encode_sequences_for_melody_rnn, convert_midi_dir_to_melody_sequences, get_melodies_from_sequences
 
 # Load gremlin_python statics
 statics.load_statics(globals())
@@ -549,9 +549,19 @@ class Session:
         for name, melody_seq in convert_midi_dir_to_melody_sequences(midi_dir, recurse=False):
             self.add_sequence_proto_to_graph(melody_seq, name)
         
-        # seq_iter = convert_midi_dir_to_sequences(input_dir, '', False)
+
+    def train_model_with_lines_from_graph(self, line_names, bpm=80):
+        """Train a TensorFlow model with lines from the graph.
+        """ 
+        # TODO(ryan): remove excerpt length post-testing
+        sequences = []
+        for line in line_names: 
+            sequences.append(self.get_line_as_sequence_proto(line, bpm))
         
-        # melody_sequences = get_melodies_from_sequences(seq_iter)         
-        # for melody_seq in melody_sequences:
-        #     self.add_sequence_proto_to_graph(melody_seq, 'new_melody')
+        print(sequences) 
+
+        eval_ratio = 0.0 
+        results = encode_sequences_for_melody_rnn(sequences, eval_ratio)
+        print(results)
+
 
