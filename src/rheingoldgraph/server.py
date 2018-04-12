@@ -36,7 +36,7 @@ class RheingoldGraphService(rgrpc.RheingoldGraphServicer):
     def GetPlayableLine(self, request, context):
         # TODO(ryan): We currently have stacked generators
         # Clean this up!
-        notes = self.session.get_playable_line(request.name) 
+        notes = self.session.get_playable_line_new(request.name) 
         for note in notes:
             yield note 
 

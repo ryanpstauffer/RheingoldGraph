@@ -307,18 +307,16 @@ class Session:
         return added_note
 
 
-    def get_playable_line(self, line_name, *, bpm=80, excerpt_len=None):
+    def get_playable_line_new(self, line_name, *, excerpt_len=None):
         """Iterate through a notation line and return a playable representation.
 
         Args:
             line_name: Name of the musical line
+            excerpt_len: Number of notes from the Line to return.
+                if None, return the entire line.
         returns:
             generator object of protobuf Notes
         """
-        # TODO(ryan): remove bpm from this method
-        # tempo/performance info should be separate from the pure musical
-        # info contained in the graph
-
         # Check if line exists
         line = self.find_line(line_name)
         if not line:
@@ -330,66 +328,63 @@ class Session:
         result = self.g.V().hasLabel('Line').has('name', line_name).out('start') \
                      .as_('v').properties().as_('p').select('v', 'p').toList()
 
-        play_duration = 0
         num_notes_returned = 0
         excerpt_complete = False
-        default_velocity = 100
-        last_end_time = 0
+        running_numerator = 0
+        running_denominator = 1
         while result != [] and not excerpt_complete:
+            # Retrieve the next note from the result
             vertex_list = self._build_vertex_list_from_result(result)
             note = self._build_object_from_props(vertex_list[0])
 
-            play_duration += 1/note.length * \
-                             (2 - (1 / 2**note.dot)) * \
-                             4 * ticks_per_beat
+            # Convert dot to numerator and denominator
+            new_numerator = (2**note.dot * 2 - 1) * 1
+            new_denominator = 2**note.dot * note.length
+          
+            # Handle tie note length logic 
+            if new_denominator == running_denominator:
+                running_numerator += new_numerator
+
+            elif new_denominator > running_denominator:
+                factor = new_denominator / running_denominator
+                running_numerator = running_numerator * factor + new_numerator
+                running_denominator = new_denominator
+
+            elif running_denominator > new_denominator:
+                factor = running_denominator / new_denominator
+                running_numerator = running_numerator + new_numerator * factor
 
             try:
                 # Check if the note is tied
                 self.g.V(note.id).out('tie').next()
             except StopIteration:
                 # If the note is not tied, ...
-                note_length_in_sec = (60 / bpm) * (play_duration / ticks_per_beat)
+                # note_length_in_sec = (60 / bpm) * (play_duration / ticks_per_beat)
+                pb_note = music_pb2.Note()
                 if note.name != 'R':
-                    pb_note = music_pb2.Note()
                     pb_note.pitch = pretty_midi.note_name_to_number(note.name)
-                    pb_note.velocity = default_velocity
-
-                    # Calc start and end times
-                    pb_note.start_time = last_end_time
-                    pb_note.end_time = pb_note.start_time + note_length_in_sec
-                    yield pb_note
-
-                    last_end_time = pb_note.end_time
-
-                    # Flag if the excerpt is complete to stop iteration
-                    num_notes_returned += 1
-                    if num_notes_returned == excerpt_len:
-                        excerpt_complete = True
-
                 elif note.name == 'R':
-                    last_end_time += note_length_in_sec
+                    pb_note.pitch = 500
 
-                play_duration = 0
+                pb_note.numerator = int(running_numerator)
+                pb_note.denominator = int(running_denominator)
+
+                yield pb_note
+
+                # Reset numerator and denominator (select a de minimis denominator)
+                running_numerator = 0
+                running_denominator = 1
+
+                # Flag if the excerpt is complete to stop iteration
+                num_notes_returned += 1
+                if num_notes_returned == excerpt_len:
+                    excerpt_complete = True
 
             result = self.g.V(('id', note.id)).out('next') \
                            .as_('v').properties().as_('p').select('v', 'p').toList()
 
 
-    def play_line(self, line_name, tempo, midi_port=DEFAULT_MIDI_PORT):
-        """Play a line with MIDI instrument.
-
-        This method streams protobuf Notes to a MIDI player
-
-        Args:
-            line_name: Name of the line to play
-            tempo: tempo in bpm
-        """
-        m = MIDIEngine(midi_port, ticks_per_beat=480)
-
-        notes = self.get_playable_line(line_name, bpm=tempo)
-        m.play_protobuf(notes)
-
-    # TODO(ryan): Separate from Graph.
+    # TODO(ryan): Separate from Graph into separate Performer.
     def save_line_to_midi(self, line_name, tempo, filename, *, excerpt_len=None):
         """Save a music line to a .mid file.
 
@@ -537,8 +532,8 @@ class Session:
             self.add_sequence_proto_to_graph(sequence, line_name)
             counter += 1 
 
-            if play_on_add:
-                session.play_line(line_name, 120)
+            # if play_on_add:
+            #     session.play_line(line_name, 120)
 
     # Add to client
     def add_midi_dir_melodies_to_graph(self, midi_dir):
@@ -570,17 +565,8 @@ class Session:
         print(results)
 
 if __name__ == '__main__':
-    gremlin_server_uri = 'ws://localhost:8189/gremlin'
-    session = Session(gremlin_server_uri)
+    pass
    
-    filename = '/Users/ryan/Projects/Rheingold/RheingoldGraph/scores/BachCelloSuiteDminPrelude.xml' 
-    with open(filename, 'rb') as f:
-        xml_string = f.read() 
-    print(xml_string)
-    session.add_lines_from_xml(xml_string, 'bach_cello4')
-    
-    midi_port = 'IAC Driver MidoPython'
-    session.play_line(line_name='bach_cello4', tempo=80, midi_port=midi_port)
 
 
 
