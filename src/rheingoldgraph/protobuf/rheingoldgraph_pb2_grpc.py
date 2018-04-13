@@ -20,8 +20,8 @@ class RheingoldGraphStub(object):
         request_serializer=rheingoldgraph__pb2.SummaryRequest.SerializeToString,
         response_deserializer=rheingoldgraph__pb2.GraphSummary.FromString,
         )
-    self.GetPlayableLine = channel.unary_stream(
-        '/rheingoldgraph.RheingoldGraph/GetPlayableLine',
+    self.GetLine = channel.unary_stream(
+        '/rheingoldgraph.RheingoldGraph/GetLine',
         request_serializer=rheingoldgraph__pb2.LineRequest.SerializeToString,
         response_deserializer=music__pb2.Note.FromString,
         )
@@ -34,6 +34,11 @@ class RheingoldGraphStub(object):
         '/rheingoldgraph.RheingoldGraph/AddLinesFromXML',
         request_serializer=rheingoldgraph__pb2.XMLRequest.SerializeToString,
         response_deserializer=rheingoldgraph__pb2.AddResponse.FromString,
+        )
+    self.SearchLines = channel.unary_stream(
+        '/rheingoldgraph.RheingoldGraph/SearchLines',
+        request_serializer=rheingoldgraph__pb2.HeaderMetadata.SerializeToString,
+        response_deserializer=rheingoldgraph__pb2.Line.FromString,
         )
 
 
@@ -48,8 +53,8 @@ class RheingoldGraphServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
-  def GetPlayableLine(self, request, context):
-    """Get a sequence of ProtoBuf Notes for a playable line
+  def GetLine(self, request, context):
+    """Get a sequence of ProtoBuf Notes from a Line 
     """
     context.set_code(grpc.StatusCode.UNIMPLEMENTED)
     context.set_details('Method not implemented!')
@@ -69,6 +74,13 @@ class RheingoldGraphServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def SearchLines(self, request, context):
+    """Search lines in the graph by Header Metadata
+    """
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
 
 def add_RheingoldGraphServicer_to_server(servicer, server):
   rpc_method_handlers = {
@@ -77,8 +89,8 @@ def add_RheingoldGraphServicer_to_server(servicer, server):
           request_deserializer=rheingoldgraph__pb2.SummaryRequest.FromString,
           response_serializer=rheingoldgraph__pb2.GraphSummary.SerializeToString,
       ),
-      'GetPlayableLine': grpc.unary_stream_rpc_method_handler(
-          servicer.GetPlayableLine,
+      'GetLine': grpc.unary_stream_rpc_method_handler(
+          servicer.GetLine,
           request_deserializer=rheingoldgraph__pb2.LineRequest.FromString,
           response_serializer=music__pb2.Note.SerializeToString,
       ),
@@ -91,6 +103,11 @@ def add_RheingoldGraphServicer_to_server(servicer, server):
           servicer.AddLinesFromXML,
           request_deserializer=rheingoldgraph__pb2.XMLRequest.FromString,
           response_serializer=rheingoldgraph__pb2.AddResponse.SerializeToString,
+      ),
+      'SearchLines': grpc.unary_stream_rpc_method_handler(
+          servicer.SearchLines,
+          request_deserializer=rheingoldgraph__pb2.HeaderMetadata.FromString,
+          response_serializer=rheingoldgraph__pb2.Line.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(

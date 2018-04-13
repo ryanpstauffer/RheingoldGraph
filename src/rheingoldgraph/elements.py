@@ -83,6 +83,25 @@ class Line(Vertex):
         return "Line(name={0!r})".format(self.name)
 
 
+class Header(Vertex):
+    """A Header Vertex.
+
+    Headers contain metadata about musical lines
+    """
+    label = 'Header'
+    created_date = PropertyDescriptor('created_date')
+    composer = PropertyDescriptor('composer')
+    session_id = PropertyDescriptor('session_id')
+
+    _properties = ['created_date', 'composer', 'session_id']
+
+    def __init__(self, created_date=None, composer=None, session_id=None):
+        self.created_date = created_date 
+        self.composer = composer
+        self.session_id = session_id 
+        self._id = None
+
+
 class Note(Vertex):
     """A Note Vertex.
     """

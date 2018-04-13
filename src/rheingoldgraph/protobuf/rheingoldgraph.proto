@@ -15,14 +15,17 @@ service RheingoldGraph {
   // Get a summary of musical information stored in our graph.
   rpc GetSummary (SummaryRequest) returns (GraphSummary) {}
 
-  // Get a sequence of ProtoBuf Notes for a playable line
-  rpc GetPlayableLine (LineRequest) returns (stream tensorflow.magenta.Note) {}
+  // Get a sequence of ProtoBuf Notes from a Line 
+  rpc GetLine (LineRequest) returns (stream tensorflow.magenta.Note) {}
 
   // Remove a line and all associated musical content
   rpc DropLine (LineRequest) returns (DropResponse) {}
 
   // Add lines in the graph from an XML file
   rpc AddLinesFromXML (XMLRequest) returns (AddResponse) {}
+
+  // Search lines in the graph by Header Metadata
+  rpc SearchLines (HeaderMetadata) returns (stream Line) {} 
 }
 
 // -------------------------------------
@@ -36,11 +39,18 @@ message SummaryRequest {
 
 message LineRequest {
   string name = 1;
+  int32 excerpt_length = 2;
 }
 
 message XMLRequest {
   bytes xml = 1;
   string piece_name = 2;
+}
+
+message HeaderMetadata {
+  string created_date = 1;
+  string composer = 2;
+  int32 session_id = 3;
 }
 
 // -------------------------------------
@@ -75,6 +85,10 @@ message AddResponse {
   int32 notes_added = 3;
 }
 
+// Representation of a musical line
+message Line {
+  string name = 1;
+}
 
 // 
 // // Copied from music.prot so I can get this to work...

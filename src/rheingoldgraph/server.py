@@ -8,6 +8,7 @@ from absl import flags
 
 import rheingoldgraph.protobuf.rheingoldgraph_pb2 as rgpb
 import rheingoldgraph.protobuf.rheingoldgraph_pb2_grpc as rgrpc
+from rheingoldgraph.elements import Header
 from rheingoldgraph.session import Session
 
 flags.DEFINE_string(
@@ -33,7 +34,7 @@ class RheingoldGraphService(rgrpc.RheingoldGraphServicer):
         return summary
 
 
-    def GetPlayableLine(self, request, context):
+    def GetLine(self, request, context):
         # TODO(ryan): We currently have stacked generators
         # Clean this up!
         notes = self.session.get_playable_line_new(request.name) 
@@ -51,6 +52,20 @@ class RheingoldGraphService(rgrpc.RheingoldGraphServicer):
         add_response = self.session.add_lines_from_xml(request.xml, request.piece_name) 
 
         return add_response
+
+
+    def SearchLines(self, request, context):
+        # TODO(ryan): better serde for ProtoBuf to graph
+        search_header = Header()
+        if request.created_date != '':
+            search_header.created_date = request.created_date
+        if request.composer != '':
+            search_header.composer = request.composer 
+        if request.session_id > 0:
+            search_header.session_id = request.session_id
+        lines = self.session.search_lines_by_header_data(search_header) 
+        for line in lines:
+            yield rgpb.Line(name=line.name)
 
 
 def main(_):

@@ -35,12 +35,12 @@ class RheingoldGraphClient:
         return self.stub.AddLinesFromXML(xml_request)
 
 
-    def get_playable_line(self, line_name): 
+    def get_line(self, line_name): 
         """Get a generator of Notes""" 
         # TODO(ryan): We still have nested generators
         # Try to improve this efficiency
         line_request = rgpb.LineRequest(name=line_name)
-        notes = self.stub.GetPlayableLine(line_request)
+        notes = self.stub.GetLine(line_request)
         for note in notes:
             yield note
 
@@ -49,6 +49,19 @@ class RheingoldGraphClient:
         """Drop a line."""
         drop_request = rgpb.LineRequest(name=line_name)
         return self.stub.DropLine(drop_request)
+
+
+    def search_lines(self, *, created_date=None, composer=None, session_id=None):
+        """Search lines by header metadata."""
+        header = rgpb.HeaderMetadata()
+        if created_date:
+            header.created_date = created_date
+        if composer:
+            header.composer = composer
+        if session_id:
+            header.session_id = session_id
+
+        return list(self.stub.SearchLines(header))
 
 
 if __name__ == '__main__':

@@ -16,8 +16,7 @@ import grpc
 from rheingoldgraph.protobuf import music_pb2
 import rheingoldgraph.protobuf.rheingoldgraph_pb2 as rgpb
 import rheingoldgraph.protobuf.rheingoldgraph_pb2_grpc as rgrpc
-from rheingoldgraph.elements import Vertex, Note
-from rheingoldgraph.midi import MIDIEngine
+from rheingoldgraph.elements import Vertex, Note, Header
 from rheingoldgraph.musicxml import get_parts_from_xml, get_parts_from_xml_string
 # from rheingoldgraph.magenta_link import run_with_config, configure_sequence_generator, RheingoldMagentaConfig
 # from rheingoldgraph.data_processing import encode_sequences_for_melody_rnn, convert_midi_dir_to_melody_sequences, get_melodies_from_sequences
@@ -50,16 +49,26 @@ class Session:
         self.g = self.graph.traversal().withRemote(DriverRemoteConnection(server_uri, 'g'))
 
 
-    def _add_line(self, line_name):
+    def _add_line(self, line_name, header=None):
         """Add a line to the graph and return it.
 
         Args:
             line_name: Name of the line to add
+            header: Instance of Header class
         Returns:
             line: new Line object added to the graph
         """
-
         raw_line = self.g.addV('Line').property('name', line_name).next()
+
+        if header:
+        # h = Header('2018-04-12', 'rheingold-pre-mvp', 1789)
+            traversal = self.g.addV('Header') 
+            for prop, value in header.property_dict().items():
+                traversal = traversal.property(prop, value)
+            header = traversal.next()
+
+            # Connect the Header to the line
+            traversal = self.g.addE('head').from_(raw_line).to(header).next()
 
         # Get full line object and properties
         line = self.get_vertex_by_id(raw_line.id)
@@ -102,6 +111,35 @@ class Session:
         except StopIteration:
             return None
 
+    
+    def search_lines_by_header_data(self, search_header):
+        """Search and return lines that match given header properties.
+
+        Args:
+            search_header: an instance of class Header with properties for searching
+        Returns:
+            lines: a list of line names that match search criteria
+        """
+        # TODO(ryan): add check that search_header is not empty
+        print(search_header)
+        traversal = self.g.V().hasLabel('Header')
+        for prop, value in search_header.property_dict().items():
+            if value is not None:
+                traversal = traversal.has(prop, value)
+
+        result = traversal.in_('head').as_('v') \
+                          .properties().as_('p').select('v', 'p').toList()
+
+        print(result)
+        try:
+            if result == []:
+                return None
+            vertex_props = self._build_vertex_list_from_result(result)
+            lines = [self._build_object_from_props(vp) for vp in vertex_props]
+            return lines 
+        except StopIteration:
+            return None
+
 
     def find_line(self, line_name):
         """Returns a Line vertex if it exists, otherwise return None.
@@ -123,6 +161,7 @@ class Session:
             return self._build_object_from_props(vertex_list[0])
         except StopIteration:
             return None
+
 
     @staticmethod
     def _build_object_from_props(prop_dict):
@@ -240,12 +279,12 @@ class Session:
 
 
     def add_lines_from_xml(self, xml_string, piece_name=None):
-        """Add lines in graph from an xml file.
+        """Add lines in graph from an xml string.
 
         Currently supports monophonic parts
 
         Args:
-            xml_string: string contents of an XML file
+            xml_string: byte string of XML 
             piece_name: Name to give the piece of music,
                         used for constructing line names
         """
@@ -266,7 +305,9 @@ class Session:
                 print("Line already exists")
                 raise LineExists
 
-            line = self._add_line(line_name)
+            # Hardcode Header for testing
+            header = Header('2018-04-12', 'bach', 1859)
+            line = self._add_line(line_name, header)
             # print(line)
 
             # Add notes to the line
