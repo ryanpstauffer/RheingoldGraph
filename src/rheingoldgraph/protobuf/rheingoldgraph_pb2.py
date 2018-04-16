@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='rheingoldgraph.proto',
   package='rheingoldgraph',
   syntax='proto3',
-  serialized_pb=_b('\n\x14rheingoldgraph.proto\x12\x0erheingoldgraph\x1a\x0bmusic.proto\"\x1e\n\x0eSummaryRequest\x12\x0c\n\x04line\x18\x01 \x01(\t\"3\n\x0bLineRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x16\n\x0e\x65xcerpt_length\x18\x02 \x01(\x05\"-\n\nXMLRequest\x12\x0b\n\x03xml\x18\x01 \x01(\x0c\x12\x12\n\npiece_name\x18\x02 \x01(\t\"L\n\x0eHeaderMetadata\x12\x14\n\x0c\x63reated_date\x18\x01 \x01(\t\x12\x10\n\x08\x63omposer\x18\x02 \x01(\t\x12\x12\n\nsession_id\x18\x03 \x01(\x05\"z\n\x0cGraphSummary\x12\x16\n\x0etotal_vertices\x18\x01 \x01(\x05\x12\x13\n\x0btotal_edges\x18\x02 \x01(\x05\x12\x11\n\tnum_lines\x18\x03 \x01(\x05\x12*\n\x05lines\x18\x04 \x03(\x0b\x32\x1b.rheingoldgraph.LineSummary\"-\n\x0bLineSummary\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08vertices\x18\x02 \x01(\x05\"-\n\x0c\x44ropResponse\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\"A\n\x0b\x41\x64\x64Response\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x13\n\x0bnotes_added\x18\x03 \x01(\x05\"\x14\n\x04Line\x12\x0c\n\x04name\x18\x01 \x01(\t2\x84\x03\n\x0eRheingoldGraph\x12L\n\nGetSummary\x12\x1e.rheingoldgraph.SummaryRequest\x1a\x1c.rheingoldgraph.GraphSummary\"\x00\x12\x44\n\x07GetLine\x12\x1b.rheingoldgraph.LineRequest\x1a\x18.tensorflow.magenta.Note\"\x00\x30\x01\x12G\n\x08\x44ropLine\x12\x1b.rheingoldgraph.LineRequest\x1a\x1c.rheingoldgraph.DropResponse\"\x00\x12L\n\x0f\x41\x64\x64LinesFromXML\x12\x1a.rheingoldgraph.XMLRequest\x1a\x1b.rheingoldgraph.AddResponse\"\x00\x12G\n\x0bSearchLines\x12\x1e.rheingoldgraph.HeaderMetadata\x1a\x14.rheingoldgraph.Line\"\x00\x30\x01\x62\x06proto3')
+  serialized_pb=_b('\n\x14rheingoldgraph.proto\x12\x0erheingoldgraph\x1a\x0bmusic.proto\"\x1e\n\x0eSummaryRequest\x12\x0c\n\x04line\x18\x01 \x01(\t\"3\n\x0bLineRequest\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x16\n\x0e\x65xcerpt_length\x18\x02 \x01(\x05\"-\n\nXMLRequest\x12\x0b\n\x03xml\x18\x01 \x01(\x0c\x12\x12\n\npiece_name\x18\x02 \x01(\t\"L\n\x0eHeaderMetadata\x12\x14\n\x0c\x63reated_date\x18\x01 \x01(\t\x12\x10\n\x08\x63omposer\x18\x02 \x01(\t\x12\x12\n\nsession_id\x18\x03 \x01(\x05\"z\n\x0cGraphSummary\x12\x16\n\x0etotal_vertices\x18\x01 \x01(\x05\x12\x13\n\x0btotal_edges\x18\x02 \x01(\x05\x12\x11\n\tnum_lines\x18\x03 \x01(\x05\x12*\n\x05lines\x18\x04 \x03(\x0b\x32\x1b.rheingoldgraph.LineSummary\"-\n\x0bLineSummary\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x10\n\x08vertices\x18\x02 \x01(\x05\"-\n\x0c\x44ropResponse\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\"A\n\x0b\x41\x64\x64Response\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07success\x18\x02 \x01(\x08\x12\x13\n\x0bnotes_added\x18\x03 \x01(\x05\"m\n\x04Line\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\'\n\x05notes\x18\x02 \x03(\x0b\x32\x18.rheingoldgraph.LineNote\x12.\n\x06header\x18\x03 \x01(\x0b\x32\x1e.rheingoldgraph.HeaderMetadata\"5\n\x08LineNote\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0e\n\x06length\x18\x02 \x01(\x05\x12\x0b\n\x03\x64ot\x18\x03 \x01(\x05\x32\xc4\x03\n\x0eRheingoldGraph\x12L\n\nGetSummary\x12\x1e.rheingoldgraph.SummaryRequest\x1a\x1c.rheingoldgraph.GraphSummary\"\x00\x12\x44\n\x07GetLine\x12\x1b.rheingoldgraph.LineRequest\x1a\x18.tensorflow.magenta.Note\"\x00\x30\x01\x12G\n\x08\x44ropLine\x12\x1b.rheingoldgraph.LineRequest\x1a\x1c.rheingoldgraph.DropResponse\"\x00\x12L\n\x0f\x41\x64\x64LinesFromXML\x12\x1a.rheingoldgraph.XMLRequest\x1a\x1b.rheingoldgraph.AddResponse\"\x00\x12G\n\x0bSearchLines\x12\x1e.rheingoldgraph.HeaderMetadata\x1a\x14.rheingoldgraph.Line\"\x00\x30\x01\x12>\n\x07\x41\x64\x64Line\x12\x14.rheingoldgraph.Line\x1a\x1b.rheingoldgraph.LineSummary\"\x00\x62\x06proto3')
   ,
   dependencies=[music__pb2.DESCRIPTOR,])
 
@@ -366,6 +366,20 @@ _LINE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='notes', full_name='rheingoldgraph.Line.notes', index=1,
+      number=2, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='header', full_name='rheingoldgraph.Line.header', index=2,
+      number=3, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -379,10 +393,57 @@ _LINE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=548,
-  serialized_end=568,
+  serialized_end=657,
+)
+
+
+_LINENOTE = _descriptor.Descriptor(
+  name='LineNote',
+  full_name='rheingoldgraph.LineNote',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='name', full_name='rheingoldgraph.LineNote.name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='length', full_name='rheingoldgraph.LineNote.length', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='dot', full_name='rheingoldgraph.LineNote.dot', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=659,
+  serialized_end=712,
 )
 
 _GRAPHSUMMARY.fields_by_name['lines'].message_type = _LINESUMMARY
+_LINE.fields_by_name['notes'].message_type = _LINENOTE
+_LINE.fields_by_name['header'].message_type = _HEADERMETADATA
 DESCRIPTOR.message_types_by_name['SummaryRequest'] = _SUMMARYREQUEST
 DESCRIPTOR.message_types_by_name['LineRequest'] = _LINEREQUEST
 DESCRIPTOR.message_types_by_name['XMLRequest'] = _XMLREQUEST
@@ -392,6 +453,7 @@ DESCRIPTOR.message_types_by_name['LineSummary'] = _LINESUMMARY
 DESCRIPTOR.message_types_by_name['DropResponse'] = _DROPRESPONSE
 DESCRIPTOR.message_types_by_name['AddResponse'] = _ADDRESPONSE
 DESCRIPTOR.message_types_by_name['Line'] = _LINE
+DESCRIPTOR.message_types_by_name['LineNote'] = _LINENOTE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 SummaryRequest = _reflection.GeneratedProtocolMessageType('SummaryRequest', (_message.Message,), dict(
@@ -457,6 +519,13 @@ Line = _reflection.GeneratedProtocolMessageType('Line', (_message.Message,), dic
   ))
 _sym_db.RegisterMessage(Line)
 
+LineNote = _reflection.GeneratedProtocolMessageType('LineNote', (_message.Message,), dict(
+  DESCRIPTOR = _LINENOTE,
+  __module__ = 'rheingoldgraph_pb2'
+  # @@protoc_insertion_point(class_scope:rheingoldgraph.LineNote)
+  ))
+_sym_db.RegisterMessage(LineNote)
+
 
 
 _RHEINGOLDGRAPH = _descriptor.ServiceDescriptor(
@@ -465,8 +534,8 @@ _RHEINGOLDGRAPH = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   options=None,
-  serialized_start=571,
-  serialized_end=959,
+  serialized_start=715,
+  serialized_end=1167,
   methods=[
   _descriptor.MethodDescriptor(
     name='GetSummary',
@@ -511,6 +580,15 @@ _RHEINGOLDGRAPH = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_HEADERMETADATA,
     output_type=_LINE,
+    options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='AddLine',
+    full_name='rheingoldgraph.RheingoldGraph.AddLine',
+    index=5,
+    containing_service=None,
+    input_type=_LINE,
+    output_type=_LINESUMMARY,
     options=None,
   ),
 ])

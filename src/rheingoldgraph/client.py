@@ -64,6 +64,23 @@ class RheingoldGraphClient:
         return list(self.stub.SearchLines(header))
 
 
+    def add_line(self, line):
+        """Add a line with notes and optional header metadata)."""
+        pb_line = rgpb.Line(name=line.name)
+        # TODO(ryan): Add back in header support
+        # if line.header:
+        #     header = rgpb.HeaderMetadata(created_date=line.header.created_date,
+        #                                  composer=line.header.composer,
+        #                                  session_id=line.header.session_id)
+        #     pb_line.header = header
+        # Serialize notes
+        for note in line.notes:
+            pb_line.notes.add(name=note.name, length=note.length, dot=note.dot)      
+        
+        line_summary = self.stub.AddLine(pb_line) 
+        print(line_summary)
+
+
 if __name__ == '__main__':
     server_uri = 'localhost:50051'
     client = RheingoldGraphClient(server_uri)

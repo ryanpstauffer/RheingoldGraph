@@ -49,26 +49,24 @@ class Session:
         self.g = self.graph.traversal().withRemote(DriverRemoteConnection(server_uri, 'g'))
 
 
-    def _add_line(self, line_name, header=None):
+    def _add_line(self, line): #line_name, header=None):
         """Add a line to the graph and return it.
 
         Args:
-            line_name: Name of the line to add
-            header: Instance of Header class
+            line: Line object to add, w/ notes and optional header
         Returns:
             line: new Line object added to the graph
         """
-        raw_line = self.g.addV('Line').property('name', line_name).next()
+        raw_line = self.g.addV('Line').property('name', line.name).next()
 
-        if header:
-        # h = Header('2018-04-12', 'rheingold-pre-mvp', 1789)
-            traversal = self.g.addV('Header') 
-            for prop, value in header.property_dict().items():
+        if line.header:
+            traversal = self.g.addV('Header')
+            for prop, value in line.header.property_dict().items():
                 traversal = traversal.property(prop, value)
-            header = traversal.next()
+            raw_header = traversal.next()
 
-            # Connect the Header to the line
-            traversal = self.g.addE('head').from_(raw_line).to(header).next()
+            # Connect the Header to the Line in the graph
+            traversal = self.g.addE('head').from_(raw_line).to(raw_header).next()
 
         # Get full line object and properties
         line = self.get_vertex_by_id(raw_line.id)
@@ -158,7 +156,9 @@ class Session:
             if len(vertex_list) > 1:
                 raise RheingoldGraphIntegrityError
 
-            return self._build_object_from_props(vertex_list[0])
+            line = self._build_object_from_props(vertex_list[0])
+
+            return line
         except StopIteration:
             return None
 
@@ -187,7 +187,29 @@ class Session:
         return obj
 
 
+    # TODO(ryan): have this APPEND Notes to a Line
     def get_line_and_notes(self, line_name):
+        """Get all notes in a musical line from the graph.
+
+        Use multiple traversals for generator functionality.
+        This ensures that even a very large music line can be efficiently iterated.
+
+        Args:
+            line_name: Name of line to retrieve
+        """
+        result = self.g.V().hasLabel('Line').has('name', line_name).out('start') \
+                     .as_('v').properties().as_('p').select('v', 'p').toList()
+
+        while result != []:
+            prop_dict = self._build_prop_dict_from_result(result)
+            last_id = prop_dict['id']
+            yield Note.from_dict(prop_dict)
+
+            result = self.g.V(('id', last_id)).out('next') \
+                         .as_('v').properties().as_('p').select('v', 'p').toList()
+
+
+    def stream_notes(self, line_name):
         """Get all notes in a musical line from the graph.
 
         Use multiple traversals for generator functionality.
@@ -289,7 +311,6 @@ class Session:
                         used for constructing line names
         """
         parts = get_parts_from_xml_string(xml_string)
-        # parts = get_parts_from_xml(filename)
 
         for part in parts:
             # TODO(ryan): Make this more robust
@@ -306,8 +327,12 @@ class Session:
                 raise LineExists
 
             # Hardcode Header for testing
+            # TODO(ryan): We should add notes to a local representation of our line
+            # THEN add the line ot the graph
             header = Header('2018-04-12', 'bach', 1859)
-            line = self._add_line(line_name, header)
+            line = Line(name=line_name, header=header)
+            line = self._add_line(line)
+            # line = self._add_line(line_name, header)
             # print(line)
 
             # Add notes to the line
@@ -461,6 +486,7 @@ class Session:
 
         return sequence
 
+
     # TODO(ryan): Change print to logging
     def graph_summary(self):
         """Print a summary of musical information in our graph.
@@ -485,6 +511,60 @@ class Session:
         return summary
  
 
+    def add_line_and_notes(self, line):
+        """Add a new line to the graph and populate with notes. 
+
+        This method takes Notes of symbolic musical information
+        - pitch
+        - numerator
+        - denominator
+        and adds them to the graph.
+
+        Args:
+            line: a Line object w/ notes and header metadata 
+        """
+        print("Adding protobuf sequence to RheingoldGraph line {0}".format(line.name))
+        # Create a new line if it doesn't already exist
+        if self.find_line(line.name):
+            raise LineExists
+        else:
+            # Should return a line object showing it exists in the graph (w/ id)
+            # but getting there...
+            returned_line = self._add_line(line)
+            # line = self.g.addV('Line').property('name', line_name).next()
+
+        # Add notes to the line
+        note_counter = 0
+        prev_note = None
+        for note in line.notes:
+            # Need to handle RESTS!
+            print(note)
+            # Assume numerator is 1 for now... 
+            # No dots are no ties created!
+            # Which is technically true for simple generative algos
+            # Since generated notes to be tied are generated as multiple
+            # repeated notes of quantized note length
+            # note_length = note.length
+            # note_length = note.denominator
+
+            # TODO(ryan) Need additional algo to estimate dots
+            # dot = 0
+            tie_flag = False
+            # graph_note = Note(name=pretty_midi.note_number_to_name(note.pitch),
+            #                   length=note_length, dot=dot)
+
+            # print(graph_note)
+            
+            # prev_note kept for tied notes support
+            prev_note = self._add_note(returned_line, note, prev_note, tie_flag)
+
+            note_counter += 1
+
+        print('Line {0} ({1} notes) added'.format(line.name, note_counter))
+        return rgpb.LineSummary(name=line.name, vertices=note_counter)
+
+
+    # Finish this method for RT performance interpolation
     def add_sequence_proto_to_graph(self, sequence, line_name):
         """Add a Protocol Buffer NoteSequence to the graph.
 
@@ -606,8 +686,8 @@ class Session:
         print(results)
 
 if __name__ == '__main__':
-    pass
-   
+    sess = Session('wd://localhost:8189/gremlin')
+     
 
 
 

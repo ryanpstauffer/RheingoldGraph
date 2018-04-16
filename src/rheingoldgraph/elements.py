@@ -71,16 +71,20 @@ class Line(Vertex):
     """A Line Vertex."""
     label = 'Line'
     name = PropertyDescriptor('name')
+    notes = PropertyDescriptor('notes')
+    header = PropertyDescriptor('header')    
 
-    _properties = ['name']
+    _properties = ['name', 'notes', 'header']
 
-    def __init__(self, name=None):
+    def __init__(self, name=None, notes=None, header=None):
         self.name = name
+        self.header = header
+        self.notes = notes
         self._id = None
 
 
-    def __repr__(self):
-        return "Line(name={0!r})".format(self.name)
+    # def __repr__(self):
+    #     return "Line(name={0!r})".format(self.name)
 
 
 class Header(Vertex):
@@ -122,9 +126,10 @@ class Note(Vertex):
 
     def to_protobuf(self):
         """Protocol Buffer output."""
-        # TODO(ryanstauffer): Confirm that we need this
         note = music_pb2.NoteSequence.Note()
         note.pitch = pretty_midi.note_name_to_number(self.name)
         note.denominator = self.length
 
         return note
+
+    

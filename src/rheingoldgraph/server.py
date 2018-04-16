@@ -8,7 +8,7 @@ from absl import flags
 
 import rheingoldgraph.protobuf.rheingoldgraph_pb2 as rgpb
 import rheingoldgraph.protobuf.rheingoldgraph_pb2_grpc as rgrpc
-from rheingoldgraph.elements import Header
+from rheingoldgraph.elements import Header, Note, Line
 from rheingoldgraph.session import Session
 
 flags.DEFINE_string(
@@ -66,6 +66,26 @@ class RheingoldGraphService(rgrpc.RheingoldGraphServicer):
         lines = self.session.search_lines_by_header_data(search_header) 
         for line in lines:
             yield rgpb.Line(name=line.name)
+
+
+    def AddLine(self, request, context):
+        # Deserialize pb notes to Note objects
+        notes = [Note(name=n.name, length=n.length, dot=n.dot) for n in request.notes]
+        # if request.header:
+        #     header = Header()
+        #     if request.header.created_date != '':
+        #         header.created_date = request.created_date
+        #     if request.header.composer != '':
+        #         header.composer = request.composer 
+        #     if request.header.session_id > 0:
+        #         header.session_id = request.session_id
+        # else:
+        # TODO(ryan): add back in Header support
+        header = None
+        line = Line(name=request.name + '98', notes=notes, header=header)
+        summary = self.session.add_line_and_notes(line)
+
+        return summary
 
 
 def main(_):

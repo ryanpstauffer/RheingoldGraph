@@ -4,9 +4,9 @@ import pytest
 
 from gremlin_python.structure.graph import Vertex, VertexProperty
 
-from rheingoldgraph.elements import Line, Note
+from rheingoldgraph.elements import Line, Note, Header
 from rheingoldgraph.session import Session
-
+from rheingoldgraph.protobuf import music_pb2
 # TODO(ryan): Launch and query a standalone test TinkerGraph instance
 
 # Fixtures
@@ -61,6 +61,23 @@ def note_props():
 def note_list():
     return [Note('D3', 8, 0), Note('F3', 8, 0), Note('A3', 4, 0)]
 
+@pytest.fixture
+def proto_notes():
+    proto_note_list = [music_pb2.Note(pitch=60, numerator=1, denominator=4),
+                       music_pb2.Note(pitch=62, numerator=1, denominator=4),
+                       music_pb2.Note(pitch=64, numerator=1, denominator=4)] 
+    return proto_note_list
+
+@pytest.fixture
+def proto_notes_gen(proto_notes):
+    # proto_note_list = [music_pb2.Note(pitch=60, numerator=1, denominator=4),
+    #                    music_pb2.Note(pitch=62, numerator=1, denominator=4),
+    #                    music_pb2.Note(pitch=64, numerator=1, denominator=4)] 
+    def proto_notes_generator():
+        for note in proto_notes:
+            yield note 
+
+    return proto_notes_generator 
 
 # Tests
 class TestFindLine:
@@ -192,7 +209,8 @@ class TestAddDropLine:
         assert session.find_line(line_name) is None
         
         # Line is added and exists 
-        session._add_line('tester')
+        line = Line(name=line_name)
+        session._add_line(line)
         line = session.find_line(line_name)
         assert type(line) is Line
         assert line.name == 'tester'
@@ -211,5 +229,39 @@ class TestAddNote:
 
     def test_add_note_fails_if_line_doesnt_exist(self, session):
         pass
+
+
+class TestAddLineAndNotesStream:
+    def test_add_line_and_notes_from_list(self, session, proto_notes):
+        # Line doesn't exist to begin with
+        line_name = 'proto_tester'
+        session.drop_line(line_name)    
+        assert session.find_line(line_name) is None
+
+        # Line and notes are added and exist
+        line = Line(name=line_name, notes=proto_notes, header=None)
+        print(line)
+        session.add_line_and_notes(line)
+        # session.add_line_and_notes(proto_notes, line_name, header=None)
+        line = session.find_line(line_name)
+        assert line.name == line_name 
+
+        # Test that the correct number of notes were added
+        added_notes = session.get_line_and_notes(line_name)
+        assert len(list(added_notes)) == len(proto_notes) 
+
+        # Drop line and it doesn't exist
+        session.drop_line(line_name)    
+        assert session.find_line(line_name) is None
+
+
+    def test_add_line_and_notes_with_header(self, session, proto_notes):
+        # Line doesn't exist to begin with
+        line_name = 'proto_tester_w_header'
+        assert session.find_line(line_name) is None
+        
+        # Line with header and notes is added and exists
+
+
 
 

@@ -40,6 +40,11 @@ class RheingoldGraphStub(object):
         request_serializer=rheingoldgraph__pb2.HeaderMetadata.SerializeToString,
         response_deserializer=rheingoldgraph__pb2.Line.FromString,
         )
+    self.AddLine = channel.unary_unary(
+        '/rheingoldgraph.RheingoldGraph/AddLine',
+        request_serializer=rheingoldgraph__pb2.Line.SerializeToString,
+        response_deserializer=rheingoldgraph__pb2.LineSummary.FromString,
+        )
 
 
 class RheingoldGraphServicer(object):
@@ -81,6 +86,13 @@ class RheingoldGraphServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def AddLine(self, request, context):
+    """Add Line
+    """
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
 
 def add_RheingoldGraphServicer_to_server(servicer, server):
   rpc_method_handlers = {
@@ -108,6 +120,11 @@ def add_RheingoldGraphServicer_to_server(servicer, server):
           servicer.SearchLines,
           request_deserializer=rheingoldgraph__pb2.HeaderMetadata.FromString,
           response_serializer=rheingoldgraph__pb2.Line.SerializeToString,
+      ),
+      'AddLine': grpc.unary_unary_rpc_method_handler(
+          servicer.AddLine,
+          request_deserializer=rheingoldgraph__pb2.Line.FromString,
+          response_serializer=rheingoldgraph__pb2.LineSummary.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(
