@@ -82,7 +82,7 @@ class RheingoldGraphService(rgrpc.RheingoldGraphServicer):
         # else:
         # TODO(ryan): add back in Header support
         header = None
-        line = Line(name=request.name + '98', notes=notes, header=header)
+        line = Line(name=request.name, notes=notes, header=header)
         summary = self.session.add_line_and_notes(line)
 
         return summary
