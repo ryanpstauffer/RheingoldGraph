@@ -86,8 +86,8 @@ class Line(Vertex):
         self._id = None
 
 
-    # def __repr__(self):
-    #     return "Line(name={0!r})".format(self.name)
+    def __repr__(self):
+        return "Line(name={0!r}, {1!r} notes)".format(self.name, len(self.notes))
 
 
 class Header(Vertex):

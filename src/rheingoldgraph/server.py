@@ -35,12 +35,14 @@ class RheingoldGraphService(rgrpc.RheingoldGraphServicer):
 
 
     def GetLine(self, request, context):
-        graph_line = self.session.get_line(request.name) 
-        # TODO(ryan): Add header send support!
-        pb_line = rgpb.Line(name=graph_line.name)
+        graph_line = self.session.get_line(line_name=request.name) 
+
+        header = rgpb.HeaderMetadata(
+            created=graph_line.header.created, composer=graph_line.header.composer) 
+        pb_line = rgpb.Line(name=graph_line.name, header=header)
         for n in graph_line.notes:
             pb_line.notes.add(name=n.name, length=n.length, dot=n.dot, tied=n.tied)
-        # Send over the whole line serialized Line object  
+
         return pb_line
 
 
@@ -53,12 +55,10 @@ class RheingoldGraphService(rgrpc.RheingoldGraphServicer):
     def SearchLines(self, request, context):
         # TODO(ryan): better serde for ProtoBuf to graph
         search_header = Header()
-        if request.created_date != '':
-            search_header.created_date = request.created_date
+        if request.created != 0:
+            search_header.created = request.created
         if request.composer != '':
             search_header.composer = request.composer 
-        if request.session_id > 0:
-            search_header.session_id = request.session_id
         lines = self.session.search_lines_by_header_data(search_header) 
         for line in lines:
             yield rgpb.Line(name=line.name)
@@ -66,20 +66,18 @@ class RheingoldGraphService(rgrpc.RheingoldGraphServicer):
 
     def AddLine(self, request, context):
         # Deserialize pb notes to Note objects
-        notes = [Note(name=n.name, length=n.length, dot=n.dot) for n in request.notes]
-        # if request.header:
-        #     header = Header()
-        #     if request.header.created_date != '':
-        #         header.created_date = request.created_date
-        #     if request.header.composer != '':
-        #         header.composer = request.composer 
-        #     if request.header.session_id > 0:
-        #         header.session_id = request.session_id
-        # else:
-        # TODO(ryan): add back in Header support
-        header = None
-        line = Line(name=request.name, notes=notes, header=header)
-        summary = self.session.add_line_and_notes(line)
+        notes_list = [Note(name=n.name, length=n.length, dot=n.dot) for n in request.notes]
+
+        # Populate header
+        header = Header()
+        if request.header.created != 0:
+            header.created = request.header.created
+        if request.header.composer != '':
+            header.composer = request.header.composer 
+
+        line = Line(name=request.name, notes=notes_list, header=header)
+        num_notes_added = self.session.add_line(line)
+        summary = rgpb.LineSummary(name=line.name, vertices=num_notes_added)
 
         return summary
 

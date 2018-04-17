@@ -45,17 +45,18 @@ class Session:
         self.g = self.graph.traversal().withRemote(DriverRemoteConnection(server_uri, 'g'))
 
 
-    def _add_line(self, line):
-        """Add a line to the graph and return it.
+    def _add_line_head(self, line):
+        """Add an initial line head (Line and Header vertices) to the graph.
 
         Args:
-            line: Line object to add, w/ notes and optional header
+            line: Line object to add, and optional header
         Returns:
             line: new Line object added to the graph
         """
         raw_line = self.g.addV('Line').property('name', line.name).next()
 
-        if line.header:
+        # If header is not empty, add it to the graph
+        if line.header.created or line.header.composer:
             traversal = self.g.addV('Header')
             for prop, value in line.header.property_dict().items():
                 traversal = traversal.property(prop, value)
@@ -192,8 +193,15 @@ class Session:
         Returns:
             line: A Line object with notes containing a list of all Notes
         """
-        # TODO(ryan): Should include Header info with line
         line = Line(name=line_name)
+
+        # Get Header first
+        header_result = self.g.V().hasLabel('Line').has('name', line_name).out('head') \
+                     .as_('v').properties().as_('p').select('v', 'p').toList()
+        header_prop_dict = self._build_prop_dict_from_result(header_result)
+        line.header = Header.from_dict(header_prop_dict)
+
+        # Get Notes
         result = self.g.V().hasLabel('Line').has('name', line_name).out('start') \
                      .as_('v').properties().as_('p').select('v', 'p').toList()
         note_list = []
@@ -209,7 +217,6 @@ class Session:
             except StopIteration:
                 prop_dict['tied'] = False
 
-            print(prop_dict)
             note_list.append(Note.from_dict(prop_dict))
 
             result = self.g.V(('id', last_id)).out('next') \
@@ -309,56 +316,6 @@ class Session:
             vertex_list.append(part)
 
         return vertex_list
-
-
-    # def add_lines_from_xml(self, xml_string, piece_name=None):
-    #     """Add lines in graph from an xml string.
-
-    #     Currently supports monophonic parts
-
-    #     Args:
-    #         xml_string: byte string of XML 
-    #         piece_name: Name to give the piece of music,
-    #                     used for constructing line names
-    #     """
-    #     parts = get_parts_from_xml_string(xml_string)
-
-    #     for part in parts:
-    #         # TODO(ryan): Make this more robust
-    #         if len(parts) == 1:
-    #             line_name = piece_name
-    #         else:
-    #             line_name = '{0}_{1}'.format(piece_name, part.id)
-
-    #         print(line_name)
-
-    #         # Check if line already exists
-    #         if self.find_line(line_name):
-    #             print("Line already exists")
-    #             raise LineExists
-
-    #         # Hardcode Header for testing
-    #         # TODO(ryan): We should add notes to a local representation of our line
-    #         # THEN add the line ot the graph
-    #         header = Header('2018-04-12', 'bach', 1859)
-    #         line = Line(name=line_name, header=header)
-    #         line = self._add_line(line)
-    #         # line = self._add_line(line_name, header)
-    #         # print(line)
-
-    #         # Add notes to the line
-    #         note_counter = 0
-    #         prev_note = None
-    #         tie_flag = False
-    #         # Can I generalize this more?
-    #         for note, tied_to_next in part.notes:
-    #             prev_note = self._add_note(line, note, prev_note, tie_flag)
-
-    #             tie_flag = tied_to_next
-    #             note_counter += 1
-
-    #         print('Line {0} ({1} notes) added'.format(line_name, note_counter))
-    #         return rgpb.AddResponse(name=line_name, success=True, notes_added=note_counter)
 
 
     def _add_note(self, line, note, prev_note=None, tied_to_prev=False):
@@ -522,13 +479,15 @@ class Session:
         return summary
  
 
-    def add_line_and_notes(self, line):
+    def add_line(self, line):
         """Add a new line to the graph and populate with notes. 
 
         Take a Line,and add its logical Notes to the graph.
 
         Args:
             line: a Line object w/ notes and header metadata 
+        Returns:
+            note_counter: number of notes added
         """
         print("Adding protobuf sequence to RheingoldGraph line {0}".format(line.name))
         # Create a new line if it doesn't already exist
@@ -537,15 +496,13 @@ class Session:
         else:
             # Should return a line object showing it exists in the graph (w/ id)
             # but getting there...
-            returned_line = self._add_line(line)
+            returned_line = self._add_line_head(line)
 
         # Add notes to the line
         note_counter = 0
         prev_note = None
         tie_flag = False
         for note in line.notes:
-            print(note)
-            
             # prev_note kept for tied notes support
             prev_note = self._add_note(returned_line, note, prev_note, tie_flag)
             note_counter += 1
@@ -554,7 +511,8 @@ class Session:
             tie_flag = note.tied 
 
         print('Line {0} ({1} notes) added'.format(line.name, note_counter))
-        return rgpb.LineSummary(name=line.name, vertices=note_counter)
+
+        return note_counter
 
 
     # Finish this method for RT performance interpolation

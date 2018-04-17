@@ -7,7 +7,7 @@ from lxml import etree
 import time
 
 from rheingoldgraph.elements import Note, Line, Header
-from rheingoldgraph.session import Session
+# from rheingoldgraph.session import Session
 
 ### Define namedtuples and global variables
 XMLNote = namedtuple('XMLNote', ['note', 'tied'])
