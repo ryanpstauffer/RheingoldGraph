@@ -1,4 +1,7 @@
-"""RheingoldGraph elements module."""
+"""RheingoldGraph elements module.
+
+Classes that model logical musical elements.
+"""
 
 import pretty_midi
 from rheingoldgraph.protobuf import music_pb2
@@ -91,18 +94,21 @@ class Header(Vertex):
     """A Header Vertex.
 
     Headers contain metadata about musical lines
+    composer: Composer, string
+    created: UNIX timestamp, integer
     """
     label = 'Header'
-    created_date = PropertyDescriptor('created_date')
+    created = PropertyDescriptor('created_date')
     composer = PropertyDescriptor('composer')
-    session_id = PropertyDescriptor('session_id')
+    # session_id = PropertyDescriptor('session_id')
 
-    _properties = ['created_date', 'composer', 'session_id']
+    _properties = ['created', 'composer']
+     #_properties = ['created_date', 'composer', 'session_id']
 
-    def __init__(self, created_date=None, composer=None, session_id=None):
-        self.created_date = created_date 
+    def __init__(self, created=None, composer=None, session_id=None):
+        self.created = created 
         self.composer = composer
-        self.session_id = session_id 
+        # self.session_id = session_id 
         self._id = None
 
 
@@ -114,19 +120,21 @@ class Note(Vertex):
     name = PropertyDescriptor('name')
     length = PropertyDescriptor('length')
     dot = PropertyDescriptor('dot')
+    tied = PropertyDescriptor('tied')
 
-    _properties = ['name', 'length', 'dot']
+    _properties = ['name', 'length', 'dot', 'tied']
 
-    def __init__(self, name=None, length=None, dot=None):
+    def __init__(self, name=None, length=None, dot=None, tied=False):
         self.name = name
         self.length = length
         self.dot = dot
+        self.tied = tied
         self._id = None
 
-
+    # TODO(ryan): Fix this
     def to_protobuf(self):
         """Protocol Buffer output."""
-        note = music_pb2.NoteSequence.Note()
+        note = music_pb2.Note()
         note.pitch = pretty_midi.note_name_to_number(self.name)
         note.denominator = self.length
 

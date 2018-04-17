@@ -8,16 +8,12 @@ from gremlin_python.driver.driver_remote_connection import DriverRemoteConnectio
 from gremlin_python.structure.graph import Graph
 from gremlin_python import statics
 
-# import magenta
-# from magenta.protobuf import music_pb2
-
 import grpc
 
 from rheingoldgraph.protobuf import music_pb2
 import rheingoldgraph.protobuf.rheingoldgraph_pb2 as rgpb
 import rheingoldgraph.protobuf.rheingoldgraph_pb2_grpc as rgrpc
-from rheingoldgraph.elements import Vertex, Note, Header
-from rheingoldgraph.musicxml import get_parts_from_xml, get_parts_from_xml_string
+from rheingoldgraph.elements import Vertex, Note, Header, Line
 # from rheingoldgraph.magenta_link import run_with_config, configure_sequence_generator, RheingoldMagentaConfig
 # from rheingoldgraph.data_processing import encode_sequences_for_melody_rnn, convert_midi_dir_to_melody_sequences, get_melodies_from_sequences
 
@@ -49,7 +45,7 @@ class Session:
         self.g = self.graph.traversal().withRemote(DriverRemoteConnection(server_uri, 'g'))
 
 
-    def _add_line(self, line): #line_name, header=None):
+    def _add_line(self, line):
         """Add a line to the graph and return it.
 
         Args:
@@ -79,7 +75,8 @@ class Session:
         """Add Note and all its property to a traversal."""
         traversal = traversal.addV(note.label).as_('new')
         for prop, value in note.property_dict().items():
-            traversal = traversal.property(prop, value)
+            if prop != 'tied':
+                traversal = traversal.property(prop, value)
 
         return traversal
 
@@ -187,28 +184,42 @@ class Session:
         return obj
 
 
-    # TODO(ryan): have this APPEND Notes to a Line
-    def get_line_and_notes(self, line_name):
-        """Get all notes in a musical line from the graph.
-
-        Use multiple traversals for generator functionality.
-        This ensures that even a very large music line can be efficiently iterated.
+    def get_line(self, line_name):
+        """Get Line with all musical notes from the graph.
 
         Args:
             line_name: Name of line to retrieve
+        Returns:
+            line: A Line object with notes containing a list of all Notes
         """
+        # TODO(ryan): Should include Header info with line
+        line = Line(name=line_name)
         result = self.g.V().hasLabel('Line').has('name', line_name).out('start') \
                      .as_('v').properties().as_('p').select('v', 'p').toList()
-
+        note_list = []
+        tied = False
         while result != []:
             prop_dict = self._build_prop_dict_from_result(result)
             last_id = prop_dict['id']
-            yield Note.from_dict(prop_dict)
+
+            # Add tied information to the Note object
+            try:
+                self.g.V(last_id).out('tie').next()
+                prop_dict['tied'] = True
+            except StopIteration:
+                prop_dict['tied'] = False
+
+            print(prop_dict)
+            note_list.append(Note.from_dict(prop_dict))
 
             result = self.g.V(('id', last_id)).out('next') \
                          .as_('v').properties().as_('p').select('v', 'p').toList()
 
+        line.notes = note_list
+    
+        return line
 
+    # TODO(ryan): Not currently implemented
     def stream_notes(self, line_name):
         """Get all notes in a musical line from the graph.
 
@@ -300,54 +311,54 @@ class Session:
         return vertex_list
 
 
-    def add_lines_from_xml(self, xml_string, piece_name=None):
-        """Add lines in graph from an xml string.
+    # def add_lines_from_xml(self, xml_string, piece_name=None):
+    #     """Add lines in graph from an xml string.
 
-        Currently supports monophonic parts
+    #     Currently supports monophonic parts
 
-        Args:
-            xml_string: byte string of XML 
-            piece_name: Name to give the piece of music,
-                        used for constructing line names
-        """
-        parts = get_parts_from_xml_string(xml_string)
+    #     Args:
+    #         xml_string: byte string of XML 
+    #         piece_name: Name to give the piece of music,
+    #                     used for constructing line names
+    #     """
+    #     parts = get_parts_from_xml_string(xml_string)
 
-        for part in parts:
-            # TODO(ryan): Make this more robust
-            if len(parts) == 1:
-                line_name = piece_name
-            else:
-                line_name = '{0}_{1}'.format(piece_name, part.id)
+    #     for part in parts:
+    #         # TODO(ryan): Make this more robust
+    #         if len(parts) == 1:
+    #             line_name = piece_name
+    #         else:
+    #             line_name = '{0}_{1}'.format(piece_name, part.id)
 
-            print(line_name)
+    #         print(line_name)
 
-            # Check if line already exists
-            if self.find_line(line_name):
-                print("Line already exists")
-                raise LineExists
+    #         # Check if line already exists
+    #         if self.find_line(line_name):
+    #             print("Line already exists")
+    #             raise LineExists
 
-            # Hardcode Header for testing
-            # TODO(ryan): We should add notes to a local representation of our line
-            # THEN add the line ot the graph
-            header = Header('2018-04-12', 'bach', 1859)
-            line = Line(name=line_name, header=header)
-            line = self._add_line(line)
-            # line = self._add_line(line_name, header)
-            # print(line)
+    #         # Hardcode Header for testing
+    #         # TODO(ryan): We should add notes to a local representation of our line
+    #         # THEN add the line ot the graph
+    #         header = Header('2018-04-12', 'bach', 1859)
+    #         line = Line(name=line_name, header=header)
+    #         line = self._add_line(line)
+    #         # line = self._add_line(line_name, header)
+    #         # print(line)
 
-            # Add notes to the line
-            note_counter = 0
-            prev_note = None
-            tie_flag = False
-            # Can I generalize this more?
-            for note, tied_to_next in part.notes:
-                prev_note = self._add_note(line, note, prev_note, tie_flag)
+    #         # Add notes to the line
+    #         note_counter = 0
+    #         prev_note = None
+    #         tie_flag = False
+    #         # Can I generalize this more?
+    #         for note, tied_to_next in part.notes:
+    #             prev_note = self._add_note(line, note, prev_note, tie_flag)
 
-                tie_flag = tied_to_next
-                note_counter += 1
+    #             tie_flag = tied_to_next
+    #             note_counter += 1
 
-            print('Line {0} ({1} notes) added'.format(line_name, note_counter))
-            return rgpb.AddResponse(name=line_name, success=True, notes_added=note_counter)
+    #         print('Line {0} ({1} notes) added'.format(line_name, note_counter))
+    #         return rgpb.AddResponse(name=line_name, success=True, notes_added=note_counter)
 
 
     def _add_note(self, line, note, prev_note=None, tied_to_prev=False):
@@ -514,11 +525,7 @@ class Session:
     def add_line_and_notes(self, line):
         """Add a new line to the graph and populate with notes. 
 
-        This method takes Notes of symbolic musical information
-        - pitch
-        - numerator
-        - denominator
-        and adds them to the graph.
+        Take a Line,and add its logical Notes to the graph.
 
         Args:
             line: a Line object w/ notes and header metadata 
@@ -531,34 +538,20 @@ class Session:
             # Should return a line object showing it exists in the graph (w/ id)
             # but getting there...
             returned_line = self._add_line(line)
-            # line = self.g.addV('Line').property('name', line_name).next()
 
         # Add notes to the line
         note_counter = 0
         prev_note = None
+        tie_flag = False
         for note in line.notes:
-            # Need to handle RESTS!
             print(note)
-            # Assume numerator is 1 for now... 
-            # No dots are no ties created!
-            # Which is technically true for simple generative algos
-            # Since generated notes to be tied are generated as multiple
-            # repeated notes of quantized note length
-            # note_length = note.length
-            # note_length = note.denominator
-
-            # TODO(ryan) Need additional algo to estimate dots
-            # dot = 0
-            tie_flag = False
-            # graph_note = Note(name=pretty_midi.note_number_to_name(note.pitch),
-            #                   length=note_length, dot=dot)
-
-            # print(graph_note)
             
             # prev_note kept for tied notes support
             prev_note = self._add_note(returned_line, note, prev_note, tie_flag)
-
             note_counter += 1
+            
+            # Set the tie flag for the next note
+            tie_flag = note.tied 
 
         print('Line {0} ({1} notes) added'.format(line.name, note_counter))
         return rgpb.LineSummary(name=line.name, vertices=note_counter)
@@ -688,6 +681,4 @@ class Session:
 if __name__ == '__main__':
     sess = Session('wd://localhost:8189/gremlin')
      
-
-
 

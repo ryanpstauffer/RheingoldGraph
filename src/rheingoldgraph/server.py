@@ -35,23 +35,19 @@ class RheingoldGraphService(rgrpc.RheingoldGraphServicer):
 
 
     def GetLine(self, request, context):
-        # TODO(ryan): We currently have stacked generators
-        # Clean this up!
-        notes = self.session.get_playable_line_new(request.name) 
-        for note in notes:
-            yield note 
+        graph_line = self.session.get_line(request.name) 
+        # TODO(ryan): Add header send support!
+        pb_line = rgpb.Line(name=graph_line.name)
+        for n in graph_line.notes:
+            pb_line.notes.add(name=n.name, length=n.length, dot=n.dot, tied=n.tied)
+        # Send over the whole line serialized Line object  
+        return pb_line
 
 
     def DropLine(self, request, context):
         drop_response = self.session.drop_line(line_name=request.name) 
 
         return drop_response
-
-
-    def AddLinesFromXML(self, request, context):
-        add_response = self.session.add_lines_from_xml(request.xml, request.piece_name) 
-
-        return add_response
 
 
     def SearchLines(self, request, context):

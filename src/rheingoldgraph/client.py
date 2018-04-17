@@ -10,6 +10,7 @@ import grpc
 import rheingoldgraph.protobuf.rheingoldgraph_pb2 as rgpb
 import rheingoldgraph.protobuf.rheingoldgraph_pb2_grpc as rgrpc
 
+from rheingoldgraph.elements import Line, Note, Header
 
 class RheingoldGraphClient:
     """Remote client of RheingoldGraph."""
@@ -25,24 +26,19 @@ class RheingoldGraphClient:
 
         return self.stub.GetSummary(summary_request) 
 
-
-    def add_lines_from_xml(self, filename, piece_name):
-        """Add lines from an XML file."""
-        with open(filename, 'rb') as f:
-            xml_string = f.read() 
-        xml_request = rgpb.XMLRequest(xml=xml_string, piece_name=piece_name)
-
-        return self.stub.AddLinesFromXML(xml_request)
-
-
+    
     def get_line(self, line_name): 
-        """Get a generator of Notes""" 
-        # TODO(ryan): We still have nested generators
-        # Try to improve this efficiency
+        """Get a logical Line with Notes""" 
         line_request = rgpb.LineRequest(name=line_name)
-        notes = self.stub.GetLine(line_request)
-        for note in notes:
-            yield note
+        pb_line = self.stub.GetLine(line_request)
+
+        # TODO(ryan): handle Header
+        line = Line(name=pb_line.name)
+        notes_list = [Note(
+            name=n.name, length=n.length, dot=n.dot, tied=n.tied) for n in pb_line.notes] 
+        line.notes = notes_list
+
+        return line
 
 
     def drop_line(self, line_name):
